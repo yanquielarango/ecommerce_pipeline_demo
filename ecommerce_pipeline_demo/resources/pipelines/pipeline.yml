@@ -1,0 +1,15 @@
+resources:
+  pipelines:
+    ecommerce_pipeline:
+      name: ecommerce_pipeline
+
+      catalog: ${var.catalog}
+      schema: ${var.schema}
+
+      serverless: true
+
+      root_path: ../src
+
+      libraries:
+        - glob:
+            include: ../src/transformations/**

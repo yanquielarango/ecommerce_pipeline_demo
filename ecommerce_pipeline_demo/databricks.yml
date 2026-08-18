@@ -1,41 +1,55 @@
-# This is a Declarative Automation Bundle definition for ecommerce_pipeline_demo.
-# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
 bundle:
   name: ecommerce_pipeline_demo
   uuid: 5d7eb2ae-60fd-4098-82a6-b0d4f634b317
 
 include:
-  - resources/*.yml
+  - resources/**/*.yml
 
-# Variable declarations. These variables are assigned in the dev/prod targets below.
 variables:
   catalog:
     description: The catalog to use
-  schema:
-    description: The schema to use
+
+  bronze_schema:
+    description: Bronze schema
+
+  silver_schema:
+    description: Silver schema
+
+  gold_schema:
+    description: Gold schema
 
 targets:
+
   dev:
-    # The default target uses 'mode: development' to create a development copy.
-    # - Deployed resources get prefixed with '[dev my_user_name]'
-    # - Any job schedules and triggers are paused by default.
-    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
-    
     default: true
+
     workspace:
       host: https://adb-7405604503619901.1.azuredatabricks.net
+
+    presets:
+      name_prefix: ""
+      pipelines_development: true
+      trigger_pause_status: PAUSED
+
     variables:
       catalog: dbr_dev
-      schema: dev
+      bronze_schema: ecommerce_bronze
+      silver_schema: ecommerce_silver
+      gold_schema: ecommerce_gold
+
   prod:
     mode: production
+
     workspace:
       host: https://adb-7405604503619901.1.azuredatabricks.net
-      # We explicitly deploy to /Workspace/Users/yanquiel@softserve.academy to make sure we only have a single copy.
       root_path: /Workspace/Users/yanquiel@softserve.academy/.bundle/${bundle.name}/${bundle.target}
+
     variables:
       catalog: dbr_dev
-      schema: prod
+      bronze_schema: ecommerce_bronze
+      silver_schema: ecommerce_silver
+      gold_schema: ecommerce_gold
+
     permissions:
       - user_name: yanquiel@softserve.academy
         level: CAN_MANAGE
