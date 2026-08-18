@@ -5,7 +5,15 @@ targets:
     workspace:
       host: https://<prod-workspace>.azuredatabricks.net
 
-      root_path: /Workspace/.bundle/${bundle.name}/${bundle.target}
-
     variables:
       catalog: dbr_dev
+      landing_storage_location: abfss://brazilian-ecommerce-storage@dlspl21databricks.dfs.core.windows.net/landing
+
+    resources:
+      volumes:
+        landing_volume:
+          name: landing
+          catalog_name: ${var.catalog}
+          schema_name: ${resources.schemas.bronze_schema.name}
+          volume_type: EXTERNAL
+          storage_location: ${var.landing_storage_location}

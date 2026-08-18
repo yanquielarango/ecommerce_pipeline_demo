@@ -1,16 +1,19 @@
 variables:
   catalog:
-    description: Catalog used by the ecommerce platform
+    description: The catalog to use
     default: dbr_dev
 
   bronze_schema:
-    description: Schema for the Bronze layer
+    description: Bronze schema
     default: ecommerce_bronze
 
   silver_schema:
-    description: Schema for the Silver layer
+    description: Silver schema
     default: ecommerce_silver
 
   gold_schema:
-    description: Schema for the Gold layer
+    description: Gold schema
     default: ecommerce_gold
+
+  landing_storage_location:
+    description: External landing storage location

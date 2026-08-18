@@ -2,7 +2,10 @@ targets:
   dev:
     default: true
 
-    presets:
-      name_prefix: ""
-      pipelines_development: true
-      trigger_pause_status: PAUSED
+    resources:
+      volumes:
+        landing_volume:
+          name: landing
+          catalog_name: ${var.catalog}
+          schema_name: ${resources.schemas.bronze_schema.name}
+          volume_type: MANAGED
