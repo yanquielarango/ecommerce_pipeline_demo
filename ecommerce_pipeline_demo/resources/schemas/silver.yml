@@ -1,0 +1,6 @@
+resources:
+  schemas:
+    silver:
+      name: ${var.silver_schema}
+      catalog_name: ${var.catalog}
+      comment: "Silver layer for cleaned and transformed ecommerce data"

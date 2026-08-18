@@ -1,0 +1,6 @@
+resources:
+  schemas:
+    gold:
+      name: ${var.gold_schema}
+      catalog_name: ${var.catalog}
+      comment: "Gold layer for business-ready ecommerce data"

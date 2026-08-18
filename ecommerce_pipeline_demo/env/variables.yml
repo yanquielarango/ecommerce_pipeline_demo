@@ -1,0 +1,16 @@
+variables:
+  catalog:
+    description: Catalog used by the ecommerce platform
+    default: dbr_dev
+
+  bronze_schema:
+    description: Schema for the Bronze layer
+    default: ecommerce_bronze
+
+  silver_schema:
+    description: Schema for the Silver layer
+    default: ecommerce_silver
+
+  gold_schema:
+    description: Schema for the Gold layer
+    default: ecommerce_gold
