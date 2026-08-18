@@ -1,0 +1,7 @@
+bundle:
+  name: ecommerce_pipeline_demo
+  uuid: 5d7eb2ae-60fd-4098-82a6-b0d4f634b317
+
+include:
+  - env/*.yml
+  - resources/**/*.yml
