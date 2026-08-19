@@ -1,5 +1,5 @@
-from pyspark import pipelines as dp
 import pyspark.sql.functions as F
+from pyspark import pipelines as dp
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
 CATALOG = spark.conf.get("catalog")  # noqa: F821
@@ -33,8 +33,7 @@ CUSTOMERS_SCHEMA = StructType(
 )
 def customers_bronze():
     return (
-        spark.readStream  # noqa: F821
-        .format("cloudFiles")
+        spark.readStream.format("cloudFiles")  # noqa: F821
         .option("cloudFiles.format", "csv")
         .option("header", "true")
         .schema(CUSTOMERS_SCHEMA)

@@ -1,13 +1,11 @@
-from pyspark import pipelines as dp
 import pyspark.sql.functions as F
+from pyspark import pipelines as dp
 from pyspark.sql.types import StringType, StructField, StructType
 
 CATALOG = spark.conf.get("catalog")  # noqa: F821
 BRONZE_SCHEMA = spark.conf.get("bronze_schema")  # noqa: F821
 
-SOURCE_PATH = (
-    f"/Volumes/{CATALOG}/{BRONZE_SCHEMA}/landing/product_categories_name/"
-)
+SOURCE_PATH = f"/Volumes/{CATALOG}/{BRONZE_SCHEMA}/landing/product_categories_name/"
 
 PRODUCT_CATEGORIES_SCHEMA = StructType(
     [
@@ -32,8 +30,7 @@ PRODUCT_CATEGORIES_SCHEMA = StructType(
 )
 def product_categories_bronze():
     return (
-        spark.readStream  # noqa: F821
-        .format("cloudFiles")
+        spark.readStream.format("cloudFiles")  # noqa: F821
         .option("cloudFiles.format", "csv")
         .option("header", "true")
         .schema(PRODUCT_CATEGORIES_SCHEMA)
