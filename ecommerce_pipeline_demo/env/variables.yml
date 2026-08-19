@@ -1,4 +1,5 @@
 variables:
+
   catalog:
     description: The catalog to use
     default: dbr_dev
@@ -17,3 +18,13 @@ variables:
 
   landing_storage_location:
     description: External landing storage location
+    default: ""
+
+  sql_warehouse_id:
+    description: SQL Warehouse used for setup SQL tasks
+
+  zerobus_principal_id:
+    description: Application ID of the Service Principal used by Zerobus
+
+  bronze_managed_storage:
+    description: Managed storage location for the Bronze schema

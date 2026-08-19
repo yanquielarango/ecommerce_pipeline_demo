@@ -2,6 +2,6 @@ resources:
   volumes:
     landing_volume:
       catalog_name: ${var.catalog}
-      schema_name: ${resources.schemas.bronze_schema.name}
+      schema_name: ${resources.schemas.bronze.name}
       name: landing
       comment: "Landing volume for ecommerce data"
