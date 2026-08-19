@@ -55,15 +55,13 @@ KAFKA_OPTIONS = {
 )
 def orders_bronze():
     raw_df = (
-        spark.readStream  # noqa: F821
-        .format("kafka")
+        spark.readStream.format("kafka")  # noqa: F821
         .options(**KAFKA_OPTIONS)
         .load()
     )
 
     return (
-        raw_df
-        .select(
+        raw_df.select(
             F.col("value").cast("string").alias("json_payload"),
             F.col("partition").alias("kafka_partition"),
             F.col("offset").alias("kafka_offset"),
