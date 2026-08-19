@@ -9,6 +9,7 @@ dependencies = [
     #
     # LIMITATION: for pipelines, dependencies are cached during development;
     # add dependencies to the 'environment' section of your pipeline.yml file instead
+    "databricks-zerobus-ingest-sdk>=1.6.1",
 ]
 
 [dependency-groups]
@@ -19,6 +20,9 @@ dev = [
     "databricks-connect>=15.4,<15.5",
     "ipykernel",
 ]
+
+[tool.uv]
+package = false
 
 [project.scripts]
 main = "ecommerce_pipeline_demo.main:main"
