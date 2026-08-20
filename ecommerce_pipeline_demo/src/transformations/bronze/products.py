@@ -5,7 +5,7 @@ from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 CATALOG = spark.conf.get("catalog")  # noqa: F821
 BRONZE_SCHEMA = spark.conf.get("bronze_schema")  # noqa: F821
 
-SOURCE_PATH = f"/Volumes/{CATALOG}/{BRONZE_SCHEMA}/landing/products/"
+SOURCE_PATH = f"/Volumes/{CATALOG}/{BRONZE_SCHEMA}/landing/data/products/"
 
 PRODUCTS_SCHEMA = StructType(
     [
