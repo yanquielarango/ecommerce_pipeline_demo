@@ -3,17 +3,14 @@ trigger:
     include:
       - main
 
-
 parameters:
   - name: deployProd
     displayName: Deploy to production
     type: boolean
     default: false
 
-
 pool:
   vmImage: ubuntu-latest
-
 
 stages:
 
@@ -39,15 +36,19 @@ stages:
             displayName: Install Databricks CLI
 
           - bash: |
+              unset DATABRICKS_CLIENT_ID
+              unset DATABRICKS_CLIENT_SECRET
+              unset DATABRICKS_TOKEN
+
               databricks bundle validate -t dev
             displayName: Validate DEV bundle
             workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
+              DATABRICKS_AUTH_TYPE: azure-client-secret
               DATABRICKS_HOST: $(DATABRICKS_HOST_DEV)
               ARM_TENANT_ID: $(ARM_TENANT_ID_DEV)
               ARM_CLIENT_ID: $(ARM_CLIENT_ID_DEV)
               ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET_DEV)
-
 
   # =========================================================
   # 2. DEPLOY DEV
@@ -78,15 +79,19 @@ stages:
             displayName: Install Databricks CLI
 
           - bash: |
+              unset DATABRICKS_CLIENT_ID
+              unset DATABRICKS_CLIENT_SECRET
+              unset DATABRICKS_TOKEN
+
               databricks bundle deploy -t dev
             displayName: Deploy bundle to DEV
             workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
+              DATABRICKS_AUTH_TYPE: azure-client-secret
               DATABRICKS_HOST: $(DATABRICKS_HOST_DEV)
               ARM_TENANT_ID: $(ARM_TENANT_ID_DEV)
               ARM_CLIENT_ID: $(ARM_CLIENT_ID_DEV)
               ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET_DEV)
-
 
   # =========================================================
   # 3. DEPLOY PROD
@@ -118,11 +123,16 @@ stages:
             displayName: Install Databricks CLI
 
           - bash: |
+              unset DATABRICKS_CLIENT_ID
+              unset DATABRICKS_CLIENT_SECRET
+              unset DATABRICKS_TOKEN
+
               databricks bundle validate -t prod
               databricks bundle deploy -t prod
             displayName: Validate and deploy PROD
             workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
+              DATABRICKS_AUTH_TYPE: azure-client-secret
               DATABRICKS_HOST: $(DATABRICKS_HOST_PROD)
               ARM_TENANT_ID: $(ARM_TENANT_ID_PROD)
               ARM_CLIENT_ID: $(ARM_CLIENT_ID_PROD)
