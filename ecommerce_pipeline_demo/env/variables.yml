@@ -1,16 +1,30 @@
 variables:
+
   catalog:
-    description: Catalog used by the ecommerce platform
+    description: The catalog to use
     default: dbr_dev
 
   bronze_schema:
-    description: Schema for the Bronze layer
+    description: Bronze schema
     default: ecommerce_bronze
 
   silver_schema:
-    description: Schema for the Silver layer
+    description: Silver schema
     default: ecommerce_silver
 
   gold_schema:
-    description: Schema for the Gold layer
+    description: Gold schema
     default: ecommerce_gold
+
+  landing_storage_location:
+    description: External landing storage location
+    default: ""
+
+  sql_warehouse_id:
+    description: SQL Warehouse used for setup SQL tasks
+
+  zerobus_principal_id:
+    description: Application ID of the Service Principal used by Zerobus
+
+  bronze_managed_storage:
+    description: Managed storage location for the Bronze schema

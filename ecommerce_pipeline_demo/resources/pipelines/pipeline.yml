@@ -1,15 +1,21 @@
 resources:
   pipelines:
     ecommerce_pipeline:
-      name: ecommerce_pipeline
+      name: ecommerce_sdp_demo
 
       catalog: ${var.catalog}
-      schema: ${var.schema}
+      schema: ${resources.schemas.bronze.name}
+
+      configuration:
+        catalog: ${var.catalog}
+        bronze_schema: ${resources.schemas.bronze.name}
+        silver_schema: ${resources.schemas.silver.name}
+        gold_schema: ${resources.schemas.gold.name}
 
       serverless: true
 
-      root_path: ../src
+      root_path: ../../src
 
       libraries:
         - glob:
-            include: ../src/transformations/**
+            include: ../../src/transformations/**

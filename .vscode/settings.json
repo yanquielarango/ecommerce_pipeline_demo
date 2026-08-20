@@ -1,0 +1,13 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/ecommerce_pipeline_demo/.venv/bin/python",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/ecommerce_pipeline_demo/src",
+    "${workspaceFolder}/ecommerce_pipeline_demo/lib",
+    "${workspaceFolder}/ecommerce_pipeline_demo/resources"
+  ],
+  "cursorpyright.analysis.extraPaths": [
+    "${workspaceFolder}/ecommerce_pipeline_demo/src",
+    "${workspaceFolder}/ecommerce_pipeline_demo/lib",
+    "${workspaceFolder}/ecommerce_pipeline_demo/resources"
+  ]
+}

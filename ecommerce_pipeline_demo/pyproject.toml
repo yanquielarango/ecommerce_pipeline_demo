@@ -9,6 +9,7 @@ dependencies = [
     #
     # LIMITATION: for pipelines, dependencies are cached during development;
     # add dependencies to the 'environment' section of your pipeline.yml file instead
+    "databricks-zerobus-ingest-sdk>=1.6.1",
 ]
 
 [dependency-groups]
@@ -20,6 +21,9 @@ dev = [
     "ipykernel",
 ]
 
+[tool.uv]
+package = false
+
 [project.scripts]
 main = "ecommerce_pipeline_demo.main:main"
 
@@ -29,3 +33,7 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 120
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

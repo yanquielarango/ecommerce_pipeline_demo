@@ -3,9 +3,18 @@ targets:
     mode: production
 
     workspace:
-      host: https://<prod-workspace>.azuredatabricks.net
-
-      root_path: /Workspace/.bundle/${bundle.name}/${bundle.target}
+      host: https://adb-7405604503619901.1.azuredatabricks.net
 
     variables:
       catalog: dbr_dev
+      sql_warehouse_id: "3ed106620db591d9"
+      landing_storage_location: abfss://brazilian-ecommerce-storage@dlspl21databricks.dfs.core.windows.net/landing
+
+    resources:
+      volumes:
+        landing_volume:
+          name: landing
+          catalog_name: ${var.catalog}
+          schema_name: ${resources.schemas.bronze.name}
+          volume_type: EXTERNAL
+          storage_location: ${var.landing_storage_location}
