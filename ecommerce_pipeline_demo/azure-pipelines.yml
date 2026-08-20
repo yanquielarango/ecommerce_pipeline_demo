@@ -44,8 +44,9 @@ stages:
             workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST_DEV)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID_DEV)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET_DEV)
+              ARM_TENANT_ID: $(ARM_TENANT_ID_DEV)
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID_DEV)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET_DEV)
 
 
   # =========================================================
@@ -82,8 +83,9 @@ stages:
             workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST_DEV)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID_DEV)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET_DEV)
+              ARM_TENANT_ID: $(ARM_TENANT_ID_DEV)
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID_DEV)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET_DEV)
 
 
   # =========================================================
@@ -122,5 +124,6 @@ stages:
             workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST_PROD)
-              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID_PROD)
-              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET_PROD)
+              ARM_TENANT_ID: $(ARM_TENANT_ID_PROD)
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID_PROD)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET_PROD)
