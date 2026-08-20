@@ -8,7 +8,7 @@ targets:
     variables:
       catalog: dbr_dev
       sql_warehouse_id: "9d0ad0844cc205a3"
-      bronze_managed_storage: "abfss://unity-catalog@dlspldatabricks.dfs.core.windows.net/managed/dbr_dev/ecommerce_bronze"
+      landing_storage_location: "abfss://landing@dlspldatabricks.dfs.core.windows.net/"
 
     resources:
       volumes:
@@ -16,4 +16,5 @@ targets:
           name: landing
           catalog_name: ${var.catalog}
           schema_name: ${resources.schemas.bronze.name}
-          volume_type: MANAGED
+          volume_type: EXTERNAL
+          storage_location: ${var.landing_storage_location}

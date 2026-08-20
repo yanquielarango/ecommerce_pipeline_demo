@@ -25,6 +25,3 @@ variables:
 
   zerobus_principal_id:
     description: Application ID of the Service Principal used by Zerobus
-
-  bronze_managed_storage:
-    description: Managed storage location for the Bronze schema

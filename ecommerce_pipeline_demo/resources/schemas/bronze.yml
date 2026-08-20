@@ -4,4 +4,3 @@ resources:
       name: ${var.bronze_schema}
       catalog_name: ${var.catalog}
       comment: "Bronze layer for raw ecommerce data"
-      storage_root: ${var.bronze_managed_storage}
