@@ -1,5 +1,4 @@
 import pyspark.sql.functions as F
-
 from pyspark import pipelines as dp
 
 CATALOG = spark.conf.get("catalog")  # noqa: F821
@@ -15,7 +14,7 @@ def products_clean():
         spark.readStream.table(  # noqa: F821
             f"{CATALOG}.{BRONZE_SCHEMA}.brz_products"
         )
-        .filter(F.col("_corrupt_record").isNull())
+        .filter(F.col("_rescued_data").isNull())
         .filter(F.col("product_id").isNotNull())
         .select(
             "product_id",
