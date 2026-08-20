@@ -11,6 +11,8 @@ resources:
         bronze_schema: ${resources.schemas.bronze.name}
         silver_schema: ${resources.schemas.silver.name}
         gold_schema: ${resources.schemas.gold.name}
+        start_date: "2016-01-01"
+        end_date: "2018-12-31"
 
       serverless: true
 
