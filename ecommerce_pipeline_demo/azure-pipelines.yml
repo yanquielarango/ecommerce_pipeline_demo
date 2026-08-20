@@ -1,0 +1,123 @@
+trigger:
+  branches:
+    include:
+      - main
+
+
+parameters:
+  - name: deployProd
+    displayName: Deploy to production
+    type: boolean
+    default: false
+
+
+pool:
+  vmImage: ubuntu-latest
+
+
+stages:
+
+  # ---------------------------------------------------------
+  # 1. VALIDATE DEV
+  # ---------------------------------------------------------
+  - stage: Validate
+    displayName: Validate Databricks Bundle
+
+    variables:
+      - group: demo2-databricks-dev
+
+    jobs:
+      - job: ValidateBundle
+        displayName: Validate DEV bundle
+
+        steps:
+          - checkout: self
+
+          - bash: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+              databricks version
+            displayName: Install Databricks CLI
+
+          - bash: |
+              databricks bundle validate -t dev
+            displayName: Validate DEV bundle
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST_DEV)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID_DEV)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET_DEV)
+
+
+  # ---------------------------------------------------------
+  # 2. DEPLOY DEV
+  # ---------------------------------------------------------
+  - stage: DeployDev
+    displayName: Deploy to DEV
+    dependsOn: Validate
+
+    condition: |
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranch'], 'refs/heads/main')
+      )
+
+    variables:
+      - group: demo2-databricks-dev
+
+    jobs:
+      - job: DeployDevBundle
+        displayName: Deploy DEV bundle
+
+        steps:
+          - checkout: self
+
+          - bash: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+              databricks version
+            displayName: Install Databricks CLI
+
+          - bash: |
+              databricks bundle deploy -t dev
+            displayName: Deploy bundle to DEV
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST_DEV)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID_DEV)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET_DEV)
+
+
+  # ---------------------------------------------------------
+  # 3. DEPLOY PROD
+  # ---------------------------------------------------------
+  - stage: DeployProd
+    displayName: Deploy to PROD
+    dependsOn: DeployDev
+
+    condition: |
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranch'], 'refs/heads/main'),
+        ${{ eq(parameters.deployProd, true) }}
+      )
+
+    variables:
+      - group: demo2-databricks-prod
+
+    jobs:
+      - job: DeployProdBundle
+        displayName: Deploy PROD bundle
+
+        steps:
+          - checkout: self
+
+          - bash: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+              databricks version
+            displayName: Install Databricks CLI
+
+          - bash: |
+              databricks bundle validate -t prod
+              databricks bundle deploy -t prod
+            displayName: Validate and deploy PROD
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST_PROD)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID_PROD)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET_PROD)
