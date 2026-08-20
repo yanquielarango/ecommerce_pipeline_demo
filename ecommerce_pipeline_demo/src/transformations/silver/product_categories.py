@@ -7,7 +7,7 @@ BRONZE_SCHEMA = spark.conf.get("bronze_schema")  # noqa: F821
 SILVER_SCHEMA = spark.conf.get("silver_schema")  # noqa: F821
 
 
-@dp.table(
+@dp.materialized_view(
     name=f"{SILVER_SCHEMA}.slv_product_categories",
     comment="Clean and validated product category translations",
     table_properties={
@@ -26,20 +26,18 @@ SILVER_SCHEMA = spark.conf.get("silver_schema")  # noqa: F821
 )
 def product_categories_silver():
     return (
-        spark.readStream.table(  # noqa: F821
+        spark.read.table(  # noqa: F821
             f"{CATALOG}.{BRONZE_SCHEMA}.brz_product_categories"
         )
         .select(
-            F.trim(
-                F.col("product_category_name")
-            ).alias("product_category_name"),
-            F.trim(
-                F.col("product_category_name_english")
-            ).alias("product_category_name_english"),
+            F.trim(F.col("product_category_name")).alias(
+                "product_category_name"
+            ),
+            F.trim(F.col("product_category_name_english")).alias(
+                "product_category_name_english"
+            ),
             "file_name",
             "ingest_datetime",
         )
-        .dropDuplicates(
-            ["product_category_name"]
-        )
+        .dropDuplicates(["product_category_name"])
     )
