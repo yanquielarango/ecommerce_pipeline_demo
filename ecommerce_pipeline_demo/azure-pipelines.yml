@@ -17,9 +17,9 @@ pool:
 
 stages:
 
-  # ---------------------------------------------------------
+  # =========================================================
   # 1. VALIDATE DEV
-  # ---------------------------------------------------------
+  # =========================================================
   - stage: Validate
     displayName: Validate Databricks Bundle
 
@@ -41,15 +41,16 @@ stages:
           - bash: |
               databricks bundle validate -t dev
             displayName: Validate DEV bundle
+            workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST_DEV)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID_DEV)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET_DEV)
 
 
-  # ---------------------------------------------------------
+  # =========================================================
   # 2. DEPLOY DEV
-  # ---------------------------------------------------------
+  # =========================================================
   - stage: DeployDev
     displayName: Deploy to DEV
     dependsOn: Validate
@@ -78,15 +79,16 @@ stages:
           - bash: |
               databricks bundle deploy -t dev
             displayName: Deploy bundle to DEV
+            workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST_DEV)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID_DEV)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET_DEV)
 
 
-  # ---------------------------------------------------------
+  # =========================================================
   # 3. DEPLOY PROD
-  # ---------------------------------------------------------
+  # =========================================================
   - stage: DeployProd
     displayName: Deploy to PROD
     dependsOn: DeployDev
@@ -117,6 +119,7 @@ stages:
               databricks bundle validate -t prod
               databricks bundle deploy -t prod
             displayName: Validate and deploy PROD
+            workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
               DATABRICKS_HOST: $(DATABRICKS_HOST_PROD)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID_PROD)
