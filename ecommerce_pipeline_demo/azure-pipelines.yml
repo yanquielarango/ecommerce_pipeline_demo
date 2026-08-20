@@ -74,6 +74,23 @@ stages:
               databricks version
             displayName: Install Databricks CLI
 
+          # TEMPORARY:
+          # Bind schemas that already exist in DEV to the
+          # deployment state owned by the CI/CD Service Principal.
+          # Remove this step after the first successful deployment.
+          - bash: |
+              databricks bundle deployment bind -t dev bronze dbr_dev.ecommerce_bronze --auto-approve
+              databricks bundle deployment bind -t dev silver dbr_dev.ecommerce_silver --auto-approve
+              databricks bundle deployment bind -t dev gold dbr_dev.ecommerce_gold --auto-approve
+            displayName: Bind existing DEV schemas
+            workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
+
           - bash: |
               databricks bundle deploy -t dev
             displayName: Deploy bundle to DEV
