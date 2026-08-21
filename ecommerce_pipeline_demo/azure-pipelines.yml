@@ -3,11 +3,9 @@ trigger:
     include:
       - main
 
-parameters:
-  - name: deployProd
-    displayName: Deploy to production
-    type: boolean
-    default: false
+  tags:
+    include:
+      - v*
 
 pool:
   vmImage: ubuntu-latest
@@ -20,6 +18,12 @@ stages:
 
 - stage: Dev
   displayName: Validate and Deploy DEV
+
+  condition: |
+    and(
+      succeeded(),
+      eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    )
 
   variables:
     - group: demo2-databricks-dev
@@ -43,7 +47,6 @@ stages:
             databricks bundle summary -t dev
             databricks bundle deploy -t dev
           displayName: Validate and Deploy DEV bundle
-
           workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
 
           env:
@@ -51,7 +54,6 @@ stages:
             DATABRICKS_HOST: $(DATABRICKS_HOST)
             DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
             DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-
             BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
 
 
@@ -62,13 +64,12 @@ stages:
 - stage: Prod
   displayName: Validate and Deploy PROD
 
-  dependsOn: Dev
+  dependsOn: []
 
   condition: |
     and(
       succeeded(),
-      eq(variables['Build.SourceBranch'], 'refs/heads/main'),
-      ${{ eq(parameters.deployProd, true) }}
+      startsWith(variables['Build.SourceBranch'], 'refs/tags/v')
     )
 
   variables:
@@ -93,7 +94,6 @@ stages:
             databricks bundle summary -t prod
             databricks bundle deploy -t prod
           displayName: Validate and Deploy PROD bundle
-
           workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
 
           env:
@@ -101,5 +101,4 @@ stages:
             DATABRICKS_HOST: $(DATABRICKS_HOST)
             DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
             DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-
             BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
