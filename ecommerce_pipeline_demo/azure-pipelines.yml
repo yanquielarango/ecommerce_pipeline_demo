@@ -12,20 +12,21 @@ parameters:
 pool:
   vmImage: ubuntu-latest
 
-stages:
 
-  # =========================================================
-  # 1. VALIDATE DEV
-  # =========================================================
-  - stage: Validate
-    displayName: Validate Databricks Bundle
+# =========================================================
+# DEV
+# =========================================================
+
+stages:
+  - stage: Dev
+    displayName: Validate and Deploy DEV
 
     variables:
       - group: demo2-databricks-dev
 
     jobs:
-      - job: ValidateBundle
-        displayName: Validate DEV bundle
+      - job: DevDeployment
+        displayName: DEV Deployment
 
         steps:
           - checkout: self
@@ -40,71 +41,50 @@ stages:
             displayName: Validate DEV bundle
             workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
-              DATABRICKS_AUTH_TYPE: oauth-m2m
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
-
-  # =========================================================
-  # 2. DEPLOY DEV
-  # =========================================================
-  - stage: DeployDev
-    displayName: Deploy to DEV
-    dependsOn: Validate
-
-    condition: |
-      and(
-        succeeded(),
-        eq(variables['Build.SourceBranch'], 'refs/heads/main')
-      )
-
-    variables:
-      - group: demo2-databricks-dev
-
-    jobs:
-      - job: DeployDevBundle
-        displayName: Deploy DEV bundle
-
-        steps:
-          - checkout: self
 
           - bash: |
-              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
-              databricks version
-            displayName: Install Databricks CLI
+              databricks bundle summary -t dev
+            displayName: Bundle Summary DEV
+            workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
 
           - bash: |
-              databricks bundle deploy -t dev --auto-approve
+              databricks bundle deploy -t dev
             displayName: Deploy bundle to DEV
             workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
-              DATABRICKS_AUTH_TYPE: oauth-m2m
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
 
-  # =========================================================
-  # 3. DEPLOY PROD
-  # =========================================================
-  - stage: DeployProd
-    displayName: Deploy to PROD
-    dependsOn: DeployDev
+
+# =========================================================
+# PROD
+# =========================================================
+
+  - stage: Prod
+    displayName: Validate and Deploy PROD
+
+    dependsOn: Dev
 
     condition: |
       and(
         succeeded(),
-        eq(variables['Build.SourceBranch'], 'refs/heads/main'),
-        ${{ eq(parameters.deployProd, true) }}
+        eq('${{ parameters.deployProd }}', 'true')
       )
 
     variables:
       - group: demo2-databricks-prod
 
     jobs:
-      - job: DeployProdBundle
-        displayName: Deploy PROD bundle
+      - job: ProdDeployment
+        displayName: PROD Deployment
 
         steps:
           - checkout: self
@@ -116,12 +96,27 @@ stages:
 
           - bash: |
               databricks bundle validate -t prod
-              databricks bundle deploy -t prod
-            displayName: Validate and deploy PROD
+            displayName: Validate PROD bundle
             workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
             env:
-              DATABRICKS_AUTH_TYPE: oauth-m2m
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
+
+          - bash: |
+              databricks bundle summary -t prod
+            displayName: Bundle Summary PROD
+            workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+
+          - bash: |
+              databricks bundle deploy -t prod
+            displayName: Deploy bundle to PROD
+            workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
