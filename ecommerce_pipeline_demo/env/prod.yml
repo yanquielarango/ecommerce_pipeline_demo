@@ -8,7 +8,7 @@ targets:
     variables:
       catalog: dbr_dev
       sql_warehouse_id: "3ed106620db591d9"
-      landing_storage_location: abfss://brazilian-ecommerce-storage@dlspl21databricks.dfs.core.windows.net/landing
+      landing_storage_location: abfss://demo2-prod@dlspl21databricks.dfs.core.windows.net/landing
 
     resources:
       volumes:
