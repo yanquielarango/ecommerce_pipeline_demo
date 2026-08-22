@@ -7,10 +7,20 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from zerobus.sdk.shared import RecordType, StreamConfigurationOptions, TableProperties
+from zerobus.sdk.shared import (
+    RecordType,
+    StreamConfigurationOptions,
+    TableProperties,
+)
 from zerobus.sdk.sync import ZerobusSdk
 
-DISCOUNT_CODES = ["SUMMER25", "WELCOME10", "FLASH15", None]
+
+DISCOUNT_CODES = [
+    "SUMMER25",
+    "WELCOME10",
+    "FLASH15",
+    None,
+]
 
 
 def parse_args():
@@ -34,14 +44,35 @@ def parse_args():
         "--num-events",
         type=int,
         default=20,
-        help="Number of order events to send",
+        help="Total number of order events to send",
     )
 
     parser.add_argument(
-        "--sleep-seconds",
+        "--min-batch-size",
+        type=int,
+        default=1,
+        help="Minimum number of events per batch",
+    )
+
+    parser.add_argument(
+        "--max-batch-size",
+        type=int,
+        default=10,
+        help="Maximum number of events per batch",
+    )
+
+    parser.add_argument(
+        "--min-batch-delay",
         type=float,
-        default=1.0,
-        help="Delay between events",
+        default=0.3,
+        help="Minimum delay between batches in seconds",
+    )
+
+    parser.add_argument(
+        "--max-batch-delay",
+        type=float,
+        default=2.5,
+        help="Maximum delay between batches in seconds",
     )
 
     parser.add_argument(
@@ -119,7 +150,11 @@ def build_order_events(
 ) -> list[dict]:
     events = []
 
-    for (order_id, product_id), item_data in order_items.items():
+    for (
+        order_id,
+        product_id,
+    ), item_data in order_items.items():
+
         order = orders.get(order_id)
 
         if not order:
@@ -128,7 +163,9 @@ def build_order_events(
         timestamp = datetime.strptime(
             order["order_purchase_timestamp"],
             "%Y-%m-%d %H:%M:%S",
-        ).replace(tzinfo=timezone.utc)
+        ).replace(
+            tzinfo=timezone.utc
+        )
 
         events.append(
             {
@@ -184,9 +221,13 @@ def send_events(
     table_name: str,
     client_id: str,
     client_secret: str,
-    sleep_seconds: float,
+    min_batch_size: int,
+    max_batch_size: int,
+    min_batch_delay: float,
+    max_batch_delay: float,
     include_discount_code: bool,
 ) -> int:
+
     stream = create_zerobus_stream(
         server_endpoint=server_endpoint,
         workspace_url=workspace_url,
@@ -196,40 +237,89 @@ def send_events(
     )
 
     sent_count = 0
+    event_index = 0
+    batch_number = 0
 
     try:
-        for event in events:
-            payload = event.copy()
+        while event_index < len(events):
 
-            if include_discount_code:
-                payload["discount_code"] = random.choice(
-                    DISCOUNT_CODES
-                )
-            else:
-                payload["discount_code"] = None
-
-            payload["ingest_datetime"] = (
-                datetime.now(timezone.utc).isoformat()
+            # Random number of events for this batch
+            batch_size = random.randint(
+                min_batch_size,
+                max_batch_size,
             )
 
-            offset = stream.ingest_record_offset(
-                payload
-            )
+            # Avoid exceeding the total number of events
+            batch = events[
+                event_index:
+                event_index + batch_size
+            ]
 
-            stream.wait_for_offset(offset)
-
-            sent_count += 1
+            batch_number += 1
 
             print(
-                f"Sent order={payload['order_id']} "
-                f"product={payload['product_id']} "
-                f"quantity={payload['quantity']} "
-                f"price={payload['price']} "
-                f"discount={payload['discount_code']} "
-                f"offset={offset}"
+                f"\nBatch {batch_number}: "
+                f"sending {len(batch)} events"
             )
 
-            time.sleep(sleep_seconds)
+            for event in batch:
+                payload = event.copy()
+
+                if include_discount_code:
+                    payload["discount_code"] = random.choice(
+                        DISCOUNT_CODES
+                    )
+                else:
+                    payload["discount_code"] = None
+
+                payload["ingest_datetime"] = (
+                    datetime.now(
+                        timezone.utc
+                    ).isoformat()
+                )
+
+                offset = stream.ingest_record_offset(
+                    payload
+                )
+
+                stream.wait_for_offset(
+                    offset
+                )
+
+                sent_count += 1
+
+                print(
+                    f"Sent order={payload['order_id']} "
+                    f"product={payload['product_id']} "
+                    f"quantity={payload['quantity']} "
+                    f"price={payload['price']} "
+                    f"discount={payload['discount_code']} "
+                    f"offset={offset}"
+                )
+
+            event_index += len(batch)
+
+            print(
+                f"Progress: "
+                f"{sent_count}/{len(events)} events"
+            )
+
+            # Only wait if there are still events remaining
+            if event_index < len(events):
+
+                delay = random.uniform(
+                    min_batch_delay,
+                    max_batch_delay,
+                )
+
+                print(
+                    f"Waiting {delay:.2f}s "
+                    "before next batch..."
+                )
+
+                time.sleep(
+                    delay
+                )
 
     finally:
         stream.close()
@@ -245,9 +335,26 @@ def main():
             "num-events must be greater than 0"
         )
 
-    if args.sleep_seconds < 0:
+    if args.min_batch_size <= 0:
         raise ValueError(
-            "sleep-seconds cannot be negative"
+            "min-batch-size must be greater than 0"
+        )
+
+    if args.max_batch_size < args.min_batch_size:
+        raise ValueError(
+            "max-batch-size must be greater than "
+            "or equal to min-batch-size"
+        )
+
+    if args.min_batch_delay < 0:
+        raise ValueError(
+            "min-batch-delay cannot be negative"
+        )
+
+    if args.max_batch_delay < args.min_batch_delay:
+        raise ValueError(
+            "max-batch-delay must be greater than "
+            "or equal to min-batch-delay"
         )
 
     server_endpoint = get_required_env(
@@ -293,6 +400,18 @@ def main():
         f"Target table: {table_name}"
     )
 
+    print(
+        f"Batch size: "
+        f"{args.min_batch_size}-"
+        f"{args.max_batch_size}"
+    )
+
+    print(
+        f"Batch delay: "
+        f"{args.min_batch_delay}-"
+        f"{args.max_batch_delay}s"
+    )
+
     sent_count = send_events(
         events=events,
         server_endpoint=server_endpoint,
@@ -300,13 +419,17 @@ def main():
         table_name=table_name,
         client_id=client_id,
         client_secret=client_secret,
-        sleep_seconds=args.sleep_seconds,
+        min_batch_size=args.min_batch_size,
+        max_batch_size=args.max_batch_size,
+        min_batch_delay=args.min_batch_delay,
+        max_batch_delay=args.max_batch_delay,
         include_discount_code=args.include_discount_code,
     )
 
     print(
-        f"Completed: {sent_count} events sent "
-        f"(discount_code={args.include_discount_code})"
+        f"\nCompleted: {sent_count} events sent "
+        f"(discount_code="
+        f"{args.include_discount_code})"
     )
 
 
