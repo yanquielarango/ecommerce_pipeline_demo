@@ -366,3 +366,6 @@ FodyWeavers.xsd
 .env
 .env.*
 !.env.example
+
+
+.venv-test/
