@@ -12,12 +12,60 @@ pool:
 
 stages:
 
-# =========================================================
-# DEV
-# =========================================================
+- stage: Tests
+  displayName: Run Unit Tests
+
+  jobs:
+    - job: UnitTests
+      displayName: PySpark Unit Tests
+
+      steps:
+        - checkout: self
+
+        - task: UsePythonVersion@0
+          displayName: Use Python 3.12
+          inputs:
+            versionSpec: "3.12"
+
+        - bash: |
+            set -e
+
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.local/bin:$PATH"
+
+            uv --version
+
+          displayName: Install uv
+
+        - bash: |
+            set -e
+
+            uv sync \
+              --only-group test \
+              --frozen
+
+            uv run \
+              --only-group test \
+              --frozen \
+              pytest tests \
+              --junitxml=$(Common.TestResultsDirectory)/pytest-results.xml
+
+          displayName: Run PySpark Unit Tests
+          workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
+
+        - task: PublishTestResults@2
+          displayName: Publish pytest results
+          condition: succeededOrFailed()
+          inputs:
+            testResultsFormat: JUnit
+            testResultsFiles: "$(Common.TestResultsDirectory)/pytest-results.xml"
+            testRunTitle: PySpark Unit Tests
 
 - stage: Dev
   displayName: Validate and Deploy DEV
+
+  dependsOn:
+    - Tests
 
   condition: |
     and(
@@ -38,6 +86,7 @@ stages:
         - bash: |
             curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
             databricks version
+
           displayName: Install Databricks CLI
 
         - bash: |
@@ -46,6 +95,7 @@ stages:
             databricks bundle validate -t dev
             databricks bundle summary -t dev
             databricks bundle deploy -t dev
+
           displayName: Validate and Deploy DEV bundle
           workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
 
@@ -56,15 +106,11 @@ stages:
             DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
             BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
 
-
-# =========================================================
-# PROD
-# =========================================================
-
 - stage: Prod
   displayName: Validate and Deploy PROD
 
-  dependsOn: []
+  dependsOn:
+    - Tests
 
   condition: |
     and(
@@ -85,6 +131,7 @@ stages:
         - bash: |
             curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
             databricks version
+
           displayName: Install Databricks CLI
 
         - bash: |
@@ -93,6 +140,7 @@ stages:
             databricks bundle validate -t prod
             databricks bundle summary -t prod
             databricks bundle deploy -t prod
+
           displayName: Validate and Deploy PROD bundle
           workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
 
