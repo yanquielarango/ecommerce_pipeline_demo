@@ -49,7 +49,7 @@ def parse_args():
         type=int,
         default=None,
         help=(
-            f"Total number of order events to send "
+            "Total number of order events to send "
             f"(default: {DEFAULT_NUM_EVENTS})"
         ),
     )
@@ -94,7 +94,24 @@ def parse_args():
     parser.add_argument(
         "--include-discount-code",
         action="store_true",
-        help="Add random discount_code values to generated events",
+        help=(
+            "Add random discount_code values "
+            "to generated events"
+        ),
+    )
+
+    parser.add_argument(
+        "--invalid-event",
+        choices=[
+            "quantity-zero",
+            "negative-price",
+            "missing-customer-id",
+        ],
+        default=None,
+        help=(
+            "Inject one invalid event for "
+            "data-quality testing"
+        ),
     )
 
     return parser.parse_args()
@@ -152,6 +169,7 @@ def load_order_items(path: str) -> dict:
             )
 
             grouped_items[key]["quantity"] += 1
+
             grouped_items[key]["price"] += float(
                 row["price"]
             )
@@ -213,6 +231,30 @@ def select_events(
     return events[:num_events]
 
 
+def make_invalid_event(
+    payload: dict,
+    invalid_event_type: str,
+) -> dict:
+    invalid_payload = payload.copy()
+
+    if invalid_event_type == "quantity-zero":
+        invalid_payload["quantity"] = 0
+
+    elif invalid_event_type == "negative-price":
+        invalid_payload["price"] = -10.0
+
+    elif invalid_event_type == "missing-customer-id":
+        invalid_payload["customer_id"] = None
+
+    else:
+        raise ValueError(
+            "Unsupported invalid event type: "
+            f"{invalid_event_type}"
+        )
+
+    return invalid_payload
+
+
 def create_zerobus_stream(
     server_endpoint: str,
     workspace_url: str,
@@ -254,6 +296,7 @@ def send_events(
     max_batch_delay: float,
     include_discount_code: bool,
     continuous: bool,
+    invalid_event_type: str | None,
 ) -> int:
     stream = create_zerobus_stream(
         server_endpoint=server_endpoint,
@@ -267,16 +310,18 @@ def send_events(
     event_index = 0
     batch_number = 0
     cycle_number = 1
+    invalid_event_injected = False
 
     try:
         while continuous or event_index < len(events):
             if event_index >= len(events):
                 cycle_number += 1
                 event_index = 0
+
                 random.shuffle(events)
 
                 print(
-                    f"\nStarting continuous cycle "
+                    "\nStarting continuous cycle "
                     f"{cycle_number}"
                 )
 
@@ -300,9 +345,27 @@ def send_events(
             for event in batch:
                 payload = event.copy()
 
+                if (
+                    invalid_event_type
+                    and not invalid_event_injected
+                ):
+                    payload = make_invalid_event(
+                        payload=payload,
+                        invalid_event_type=invalid_event_type,
+                    )
+
+                    invalid_event_injected = True
+
+                    print(
+                        "DQ TEST: injecting invalid event "
+                        f"type={invalid_event_type}"
+                    )
+
                 if include_discount_code:
-                    payload["discount_code"] = random.choice(
-                        DISCOUNT_CODES
+                    payload["discount_code"] = (
+                        random.choice(
+                            DISCOUNT_CODES
+                        )
                     )
                 else:
                     payload["discount_code"] = None
@@ -313,8 +376,10 @@ def send_events(
                     ).isoformat()
                 )
 
-                offset = stream.ingest_record_offset(
-                    payload
+                offset = (
+                    stream.ingest_record_offset(
+                        payload
+                    )
                 )
 
                 stream.wait_for_offset(
@@ -328,7 +393,8 @@ def send_events(
                     f"product={payload['product_id']} "
                     f"quantity={payload['quantity']} "
                     f"price={payload['price']} "
-                    f"discount={payload['discount_code']} "
+                    f"discount="
+                    f"{payload['discount_code']} "
                     f"offset={offset}"
                 )
 
@@ -340,7 +406,7 @@ def send_events(
                 )
             else:
                 print(
-                    f"Progress: "
+                    "Progress: "
                     f"{sent_count}/{len(events)} events"
                 )
 
@@ -355,12 +421,15 @@ def send_events(
                     "before next batch..."
                 )
 
-                time.sleep(delay)
+                time.sleep(
+                    delay
+                )
 
     except KeyboardInterrupt:
         print(
             "\nProducer stopped by user."
         )
+
         print(
             f"Total events sent: {sent_count}"
         )
@@ -372,7 +441,10 @@ def send_events(
 
 
 def validate_args(args) -> None:
-    if args.num_events is not None and args.num_events <= 0:
+    if (
+        args.num_events is not None
+        and args.num_events <= 0
+    ):
         raise ValueError(
             "num-events must be greater than 0"
         )
@@ -382,7 +454,10 @@ def validate_args(args) -> None:
             "min-batch-size must be greater than 0"
         )
 
-    if args.max_batch_size < args.min_batch_size:
+    if (
+        args.max_batch_size
+        < args.min_batch_size
+    ):
         raise ValueError(
             "max-batch-size must be greater than "
             "or equal to min-batch-size"
@@ -393,7 +468,10 @@ def validate_args(args) -> None:
             "min-batch-delay cannot be negative"
         )
 
-    if args.max_batch_delay < args.min_batch_delay:
+    if (
+        args.max_batch_delay
+        < args.min_batch_delay
+    ):
         raise ValueError(
             "max-batch-delay must be greater than "
             "or equal to min-batch-delay"
@@ -451,9 +529,12 @@ def main():
         print(
             "Execution mode: continuous"
         )
+
         print(
-            f"Source event pool: {len(events)} events"
+            "Source event pool: "
+            f"{len(events)} events"
         )
+
         print(
             "Press Ctrl+C to stop the producer"
         )
@@ -473,6 +554,7 @@ def main():
         print(
             "Execution mode: finite"
         )
+
         print(
             f"Events to send: {len(events)}"
         )
@@ -482,13 +564,13 @@ def main():
     )
 
     print(
-        f"Batch size: "
+        "Batch size: "
         f"{args.min_batch_size}-"
         f"{args.max_batch_size}"
     )
 
     print(
-        f"Batch delay: "
+        "Batch delay: "
         f"{args.min_batch_delay}-"
         f"{args.max_batch_delay}s"
     )
@@ -497,6 +579,11 @@ def main():
         "Discount codes: "
         f"{'enabled' if args.include_discount_code else 'disabled'}"
     )
+
+    if args.invalid_event:
+        print(
+            f"DQ test mode: {args.invalid_event}"
+        )
 
     sent_count = send_events(
         events=events,
@@ -509,12 +596,15 @@ def main():
         max_batch_size=args.max_batch_size,
         min_batch_delay=args.min_batch_delay,
         max_batch_delay=args.max_batch_delay,
-        include_discount_code=args.include_discount_code,
+        include_discount_code=(
+            args.include_discount_code
+        ),
         continuous=args.continuous,
+        invalid_event_type=args.invalid_event,
     )
 
     print(
-        f"\nProducer finished: "
+        "\nProducer finished: "
         f"{sent_count} events sent"
     )
 
