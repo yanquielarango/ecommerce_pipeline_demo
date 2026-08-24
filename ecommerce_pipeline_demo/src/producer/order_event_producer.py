@@ -15,6 +15,8 @@ from zerobus.sdk.shared import (
 from zerobus.sdk.sync import ZerobusSdk
 
 
+DEFAULT_NUM_EVENTS = 20
+
 DISCOUNT_CODES = [
     "SUMMER25",
     "WELCOME10",
@@ -40,11 +42,25 @@ def parse_args():
         help="Path to order_items.csv",
     )
 
-    parser.add_argument(
+    execution_mode = parser.add_mutually_exclusive_group()
+
+    execution_mode.add_argument(
         "--num-events",
         type=int,
-        default=20,
-        help="Total number of order events to send",
+        default=None,
+        help=(
+            f"Total number of order events to send "
+            f"(default: {DEFAULT_NUM_EVENTS})"
+        ),
+    )
+
+    execution_mode.add_argument(
+        "--continuous",
+        action="store_true",
+        help=(
+            "Continuously send order events until "
+            "stopped with Ctrl+C"
+        ),
     )
 
     parser.add_argument(
@@ -146,7 +162,6 @@ def load_order_items(path: str) -> dict:
 def build_order_events(
     orders: dict,
     order_items: dict,
-    num_events: int,
 ) -> list[dict]:
     events = []
 
@@ -154,7 +169,6 @@ def build_order_events(
         order_id,
         product_id,
     ), item_data in order_items.items():
-
         order = orders.get(order_id)
 
         if not order:
@@ -182,6 +196,19 @@ def build_order_events(
         )
 
     random.shuffle(events)
+
+    return events
+
+
+def select_events(
+    events: list[dict],
+    num_events: int,
+) -> list[dict]:
+    if num_events > len(events):
+        raise ValueError(
+            f"Requested {num_events} events, but only "
+            f"{len(events)} source events are available"
+        )
 
     return events[:num_events]
 
@@ -226,8 +253,8 @@ def send_events(
     min_batch_delay: float,
     max_batch_delay: float,
     include_discount_code: bool,
+    continuous: bool,
 ) -> int:
-
     stream = create_zerobus_stream(
         server_endpoint=server_endpoint,
         workspace_url=workspace_url,
@@ -239,17 +266,25 @@ def send_events(
     sent_count = 0
     event_index = 0
     batch_number = 0
+    cycle_number = 1
 
     try:
-        while event_index < len(events):
+        while continuous or event_index < len(events):
+            if event_index >= len(events):
+                cycle_number += 1
+                event_index = 0
+                random.shuffle(events)
 
-            # Random number of events for this batch
+                print(
+                    f"\nStarting continuous cycle "
+                    f"{cycle_number}"
+                )
+
             batch_size = random.randint(
                 min_batch_size,
                 max_batch_size,
             )
 
-            # Avoid exceeding the total number of events
             batch = events[
                 event_index:
                 event_index + batch_size
@@ -299,14 +334,17 @@ def send_events(
 
             event_index += len(batch)
 
-            print(
-                f"Progress: "
-                f"{sent_count}/{len(events)} events"
-            )
+            if continuous:
+                print(
+                    f"Total sent: {sent_count} events"
+                )
+            else:
+                print(
+                    f"Progress: "
+                    f"{sent_count}/{len(events)} events"
+                )
 
-            # Only wait if there are still events remaining
-            if event_index < len(events):
-
+            if continuous or event_index < len(events):
                 delay = random.uniform(
                     min_batch_delay,
                     max_batch_delay,
@@ -317,9 +355,15 @@ def send_events(
                     "before next batch..."
                 )
 
-                time.sleep(
-                    delay
-                )
+                time.sleep(delay)
+
+    except KeyboardInterrupt:
+        print(
+            "\nProducer stopped by user."
+        )
+        print(
+            f"Total events sent: {sent_count}"
+        )
 
     finally:
         stream.close()
@@ -327,10 +371,8 @@ def send_events(
     return sent_count
 
 
-def main():
-    args = parse_args()
-
-    if args.num_events <= 0:
+def validate_args(args) -> None:
+    if args.num_events is not None and args.num_events <= 0:
         raise ValueError(
             "num-events must be greater than 0"
         )
@@ -356,6 +398,12 @@ def main():
             "max-batch-delay must be greater than "
             "or equal to min-batch-delay"
         )
+
+
+def main():
+    args = parse_args()
+
+    validate_args(args)
 
     server_endpoint = get_required_env(
         "ZEROBUS_SERVER_ENDPOINT"
@@ -386,15 +434,48 @@ def main():
         args.order_items_path
     )
 
-    events = build_order_events(
+    source_events = build_order_events(
         orders=orders,
         order_items=order_items,
-        num_events=args.num_events,
     )
 
-    print(
-        f"Loaded {len(events)} events"
-    )
+    if not source_events:
+        raise RuntimeError(
+            "No valid order events were generated "
+            "from the source files"
+        )
+
+    if args.continuous:
+        events = source_events
+
+        print(
+            "Execution mode: continuous"
+        )
+        print(
+            f"Source event pool: {len(events)} events"
+        )
+        print(
+            "Press Ctrl+C to stop the producer"
+        )
+
+    else:
+        num_events = (
+            args.num_events
+            if args.num_events is not None
+            else DEFAULT_NUM_EVENTS
+        )
+
+        events = select_events(
+            events=source_events,
+            num_events=num_events,
+        )
+
+        print(
+            "Execution mode: finite"
+        )
+        print(
+            f"Events to send: {len(events)}"
+        )
 
     print(
         f"Target table: {table_name}"
@@ -412,6 +493,11 @@ def main():
         f"{args.max_batch_delay}s"
     )
 
+    print(
+        "Discount codes: "
+        f"{'enabled' if args.include_discount_code else 'disabled'}"
+    )
+
     sent_count = send_events(
         events=events,
         server_endpoint=server_endpoint,
@@ -424,12 +510,12 @@ def main():
         min_batch_delay=args.min_batch_delay,
         max_batch_delay=args.max_batch_delay,
         include_discount_code=args.include_discount_code,
+        continuous=args.continuous,
     )
 
     print(
-        f"\nCompleted: {sent_count} events sent "
-        f"(discount_code="
-        f"{args.include_discount_code})"
+        f"\nProducer finished: "
+        f"{sent_count} events sent"
     )
 
 
