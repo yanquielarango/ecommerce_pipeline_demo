@@ -17,9 +17,9 @@ VALID_ORDER_CONDITION = " AND ".join(
 )
 
 
-def prepare_orders(df: DataFrame) -> DataFrame:
+def prepare_orders(orders: DataFrame) -> DataFrame:
     return (
-        df
+        orders
         .withColumn(
             "order_timestamp",
             F.to_timestamp("order_timestamp"),

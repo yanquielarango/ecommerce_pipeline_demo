@@ -1,8 +1,10 @@
 [project]
 name = "ecommerce_pipeline_demo"
 version = "0.0.1"
-authors = [{ name = "yanquiel@softserve.academy" }]
-requires-python = ">=3.10,<3.13"
+authors = [
+    { name = "Yanquiel Gomez", email = "yanquiel@softserve.academy" },
+]
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "databricks-zerobus-ingest-sdk>=1.6.1",
 ]
@@ -11,32 +13,27 @@ dependencies = [
 dev = [
     "pytest",
     "ruff",
-    "databricks-dlt",
-    "databricks-connect>=15.4,<15.5",
     "ipykernel",
 ]
 
-test = [
-    "pytest",
+unit-tests = [
     "pyspark==3.5.0",
+]
+
+integration-tests = [
+    "databricks-connect>=15.4.10,<15.5",
 ]
 
 [tool.uv]
 package = false
+default-groups = ["dev"]
 
 conflicts = [
     [
-        { group = "dev" },
-        { group = "test" },
+        { group = "unit-tests" },
+        { group = "integration-tests" },
     ],
 ]
-
-[project.scripts]
-main = "ecommerce_pipeline_demo.main:main"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 120
@@ -48,3 +45,7 @@ venv = ".venv"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+    "unit_test: fast isolated tests using local PySpark",
+    "integration_test: tests running against Databricks",
+]

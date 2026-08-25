@@ -31,7 +31,7 @@ def build_fact_orders(
             "left",
         )
         .join(
-            dates.alias("d"),
+            dates,
             "date_key",
             "left",
         )
