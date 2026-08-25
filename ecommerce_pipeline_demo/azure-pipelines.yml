@@ -62,6 +62,7 @@ stages:
         - task: PublishTestResults@2
           displayName: Publish Unit Test Results
           condition: succeededOrFailed()
+
           inputs:
             testResultsFormat: JUnit
             testResultsFiles: "$(Common.TestResultsDirectory)/pytest-unit-results.xml"
@@ -73,7 +74,7 @@ stages:
 # ============================================================
 
 - stage: Dev
-  displayName: Validate, Deploy and Run DEV
+  displayName: Validate and Deploy DEV
 
   dependsOn:
     - Tests
@@ -122,30 +123,13 @@ stages:
             DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
             BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
 
-        - bash: |
-            set -e
-
-            databricks bundle run \
-              -t dev \
-              ecommerce_pipeline
-
-          displayName: Run DEV Pipeline
-          workingDirectory: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
-
-          env:
-            DATABRICKS_AUTH_TYPE: oauth-m2m
-            DATABRICKS_HOST: $(DATABRICKS_HOST)
-            DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
-            DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-            BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
-
 
 # ============================================================
 # INTEGRATION TESTS
 # ============================================================
 
 - stage: IntegrationTests
-  displayName: Run Integration Tests (DEV)
+  displayName: Run Integration Tests DEV
 
   dependsOn:
     - Dev
@@ -203,7 +187,9 @@ stages:
             DATABRICKS_HOST: $(DATABRICKS_HOST)
             DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
             DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+
             DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+
             DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
             DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
             DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
@@ -211,6 +197,7 @@ stages:
         - task: PublishTestResults@2
           displayName: Publish Integration Test Results
           condition: succeededOrFailed()
+
           inputs:
             testResultsFormat: JUnit
             testResultsFiles: "$(Common.TestResultsDirectory)/pytest-integration-results.xml"
