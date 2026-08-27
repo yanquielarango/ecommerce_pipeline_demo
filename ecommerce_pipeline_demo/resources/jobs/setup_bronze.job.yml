@@ -14,18 +14,3 @@ resources:
             parameters:
               catalog: ${var.catalog}
               bronze_schema: ${resources.schemas.bronze.name}
-
-        - task_key: grant_zerobus_permissions
-          depends_on:
-            - task_key: create_orders_bronze
-
-          sql_task:
-            file:
-              path: ${workspace.file_path}/src/setup/grant_zerobus_permissions.sql
-              source: WORKSPACE
-            warehouse_id: ${var.sql_warehouse_id}
-
-            parameters:
-              catalog: ${var.catalog}
-              bronze_schema: ${resources.schemas.bronze.name}
-              zerobus_principal_id: ${var.zerobus_principal_id}
