@@ -3,12 +3,12 @@ targets:
     default: true
 
     workspace:
-      host: https://adb-7405606278809955.15.azuredatabricks.net
+      host: https://adb-7405614724722402.2.azuredatabricks.net
 
     variables:
       catalog: dbr_dev
-      sql_warehouse_id: "9d0ad0844cc205a3"
-      landing_storage_location: "abfss://landing@dlspldatabricks.dfs.core.windows.net/"
+      sql_warehouse_id: "d6092c263a047666"
+      landing_storage_location: "abfss://landing@stdatabricksdemo26.dfs.core.windows.net/"
 
     resources:
       volumes:

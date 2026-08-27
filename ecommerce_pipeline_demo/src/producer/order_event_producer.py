@@ -7,606 +7,210 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from zerobus.sdk.shared import (
-    RecordType,
-    StreamConfigurationOptions,
-    TableProperties,
-)
+from zerobus.sdk.shared import RecordType, StreamConfigurationOptions, TableProperties
 from zerobus.sdk.sync import ZerobusSdk
 
 
 DEFAULT_NUM_EVENTS = 20
-
-DISCOUNT_CODES = [
-    "SUMMER25",
-    "WELCOME10",
-    "FLASH15",
-    None,
-]
+DISCOUNT_CODES = ["SUMMER25", "WELCOME10", "FLASH15", None]
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Order Zerobus producer"
-    )
+    parser = argparse.ArgumentParser(description="Order Zerobus producer")
 
-    parser.add_argument(
-        "--orders-path",
-        default="data/orders/orders.csv",
-        help="Path to orders.csv",
-    )
+    parser.add_argument("--orders-path", default="data/orders/orders.csv", help="Path to orders.csv")
+    parser.add_argument("--order-items-path", default="data/order_items/order_items.csv", help="Path to order_items.csv")
 
-    parser.add_argument(
-        "--order-items-path",
-        default="data/order_items/order_items.csv",
-        help="Path to order_items.csv",
-    )
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--num-events", type=int, default=None, help=f"Number of events to send (default: {DEFAULT_NUM_EVENTS})")
+    mode.add_argument("--continuous", action="store_true", help="Send events continuously until stopped with Ctrl+C")
 
-    execution_mode = parser.add_mutually_exclusive_group()
-
-    execution_mode.add_argument(
-        "--num-events",
-        type=int,
-        default=None,
-        help=(
-            "Total number of order events to send "
-            f"(default: {DEFAULT_NUM_EVENTS})"
-        ),
-    )
-
-    execution_mode.add_argument(
-        "--continuous",
-        action="store_true",
-        help=(
-            "Continuously send order events until "
-            "stopped with Ctrl+C"
-        ),
-    )
-
-    parser.add_argument(
-        "--min-batch-size",
-        type=int,
-        default=1,
-        help="Minimum number of events per batch",
-    )
-
-    parser.add_argument(
-        "--max-batch-size",
-        type=int,
-        default=10,
-        help="Maximum number of events per batch",
-    )
-
-    parser.add_argument(
-        "--min-batch-delay",
-        type=float,
-        default=0.3,
-        help="Minimum delay between batches in seconds",
-    )
-
-    parser.add_argument(
-        "--max-batch-delay",
-        type=float,
-        default=2.5,
-        help="Maximum delay between batches in seconds",
-    )
-
-    parser.add_argument(
-        "--include-discount-code",
-        action="store_true",
-        help=(
-            "Add random discount_code values "
-            "to generated events"
-        ),
-    )
-
-    parser.add_argument(
-        "--invalid-event",
-        choices=[
-            "quantity-zero",
-            "negative-price",
-            "missing-customer-id",
-        ],
-        default=None,
-        help=(
-            "Inject one invalid event for "
-            "data-quality testing"
-        ),
-    )
+    parser.add_argument("--min-batch-size", type=int, default=1)
+    parser.add_argument("--max-batch-size", type=int, default=10)
+    parser.add_argument("--min-batch-delay", type=float, default=0.3)
+    parser.add_argument("--max-batch-delay", type=float, default=2.5)
+    parser.add_argument("--include-discount-code", action="store_true", help="Include discount_code in generated events")
+    parser.add_argument("--invalid-event", choices=["quantity-zero", "negative-price", "missing-customer-id"],
+                         help="Inject one invalid event for data-quality testing")
 
     return parser.parse_args()
 
 
-def get_required_env(name: str) -> str:
+def validate_args(args):
+    if args.num_events is not None and args.num_events <= 0:
+        raise ValueError("num-events must be greater than 0")
+    if args.min_batch_size <= 0:
+        raise ValueError("min-batch-size must be greater than 0")
+    if args.max_batch_size < args.min_batch_size:
+        raise ValueError("max-batch-size must be greater than or equal to min-batch-size")
+    if args.min_batch_delay < 0:
+        raise ValueError("min-batch-delay cannot be negative")
+    if args.max_batch_delay < args.min_batch_delay:
+        raise ValueError("max-batch-delay must be greater than or equal to min-batch-delay")
+
+
+def get_required_env(name):
     value = os.environ.get(name)
-
     if not value:
-        raise RuntimeError(
-            f"{name} environment variable is required"
-        )
-
+        raise RuntimeError(f"{name} environment variable is required")
     return value
 
 
-def load_orders(path: str) -> dict:
+def load_orders(path):
     orders = {}
-
-    with Path(path).open(
-        newline="",
-        encoding="utf-8",
-    ) as file:
-        reader = csv.DictReader(file)
-
-        for row in reader:
-            orders[row["order_id"]] = {
-                "customer_id": row["customer_id"],
-                "order_purchase_timestamp": row[
-                    "order_purchase_timestamp"
-                ],
-            }
-
+    with Path(path).open(newline="", encoding="utf-8") as file:
+        for row in csv.DictReader(file):
+            orders[row["order_id"]] = {"customer_id": row["customer_id"], "order_purchase_timestamp": row["order_purchase_timestamp"]}
     return orders
 
 
-def load_order_items(path: str) -> dict:
-    grouped_items = defaultdict(
-        lambda: {
-            "quantity": 0,
-            "price": 0.0,
-        }
-    )
-
-    with Path(path).open(
-        newline="",
-        encoding="utf-8",
-    ) as file:
-        reader = csv.DictReader(file)
-
-        for row in reader:
-            key = (
-                row["order_id"],
-                row["product_id"],
-            )
-
-            grouped_items[key]["quantity"] += 1
-
-            grouped_items[key]["price"] += float(
-                row["price"]
-            )
-
-    return grouped_items
+def load_order_items(path):
+    items = defaultdict(lambda: {"quantity": 0, "price": 0.0})
+    with Path(path).open(newline="", encoding="utf-8") as file:
+        for row in csv.DictReader(file):
+            key = (row["order_id"], row["product_id"])
+            items[key]["quantity"] += 1
+            items[key]["price"] += float(row["price"])
+    return items
 
 
-def build_order_events(
-    orders: dict,
-    order_items: dict,
-) -> list[dict]:
+def build_order_events(orders, order_items):
     events = []
 
-    for (
-        order_id,
-        product_id,
-    ), item_data in order_items.items():
+    for (order_id, product_id), item in order_items.items():
         order = orders.get(order_id)
-
         if not order:
             continue
 
-        timestamp = datetime.strptime(
-            order["order_purchase_timestamp"],
-            "%Y-%m-%d %H:%M:%S",
-        ).replace(
-            tzinfo=timezone.utc
-        )
+        order_timestamp = datetime.strptime(order["order_purchase_timestamp"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
 
-        events.append(
-            {
-                "order_id": order_id,
-                "customer_id": order["customer_id"],
-                "product_id": product_id,
-                "quantity": item_data["quantity"],
-                "price": round(
-                    item_data["price"],
-                    2,
-                ),
-                "order_timestamp": timestamp.isoformat(),
-            }
-        )
+        events.append({
+            "order_id": order_id,
+            "customer_id": order["customer_id"],
+            "product_id": product_id,
+            "quantity": item["quantity"],
+            "price": round(item["price"], 2),
+            "order_timestamp": order_timestamp.isoformat(),
+        })
 
     random.shuffle(events)
-
     return events
 
 
-def select_events(
-    events: list[dict],
-    num_events: int,
-) -> list[dict]:
-    if num_events > len(events):
-        raise ValueError(
-            f"Requested {num_events} events, but only "
-            f"{len(events)} source events are available"
-        )
-
-    return events[:num_events]
-
-
-def make_invalid_event(
-    payload: dict,
-    invalid_event_type: str,
-) -> dict:
-    invalid_payload = payload.copy()
+def make_invalid_event(event, invalid_event_type):
+    payload = event.copy()
 
     if invalid_event_type == "quantity-zero":
-        invalid_payload["quantity"] = 0
-
+        payload["quantity"] = 0
     elif invalid_event_type == "negative-price":
-        invalid_payload["price"] = -10.0
-
+        payload["price"] = -10.0
     elif invalid_event_type == "missing-customer-id":
-        invalid_payload["customer_id"] = None
-
+        payload["customer_id"] = None
     else:
-        raise ValueError(
-            "Unsupported invalid event type: "
-            f"{invalid_event_type}"
-        )
+        raise ValueError(f"Unsupported invalid event type: {invalid_event_type}")
 
-    return invalid_payload
+    return payload
 
 
-def create_zerobus_stream(
-    server_endpoint: str,
-    workspace_url: str,
-    table_name: str,
-    client_id: str,
-    client_secret: str,
-):
-    sdk = ZerobusSdk(
-        server_endpoint,
-        workspace_url,
-    )
-
-    table_properties = TableProperties(
-        table_name
-    )
-
-    options = StreamConfigurationOptions(
-        record_type=RecordType.JSON
-    )
-
-    return sdk.create_stream(
-        client_id,
-        client_secret,
-        table_properties,
-        options,
-    )
+def create_zerobus_stream(server_endpoint, workspace_url, table_name, client_id, client_secret):
+    sdk = ZerobusSdk(server_endpoint, workspace_url)
+    table_properties = TableProperties(table_name)
+    options = StreamConfigurationOptions(record_type=RecordType.JSON)
+    return sdk.create_stream(client_id, client_secret, table_properties, options)
 
 
-def send_events(
-    events: list[dict],
-    server_endpoint: str,
-    workspace_url: str,
-    table_name: str,
-    client_id: str,
-    client_secret: str,
-    min_batch_size: int,
-    max_batch_size: int,
-    min_batch_delay: float,
-    max_batch_delay: float,
-    include_discount_code: bool,
-    continuous: bool,
-    invalid_event_type: str | None,
-) -> int:
-    stream = create_zerobus_stream(
-        server_endpoint=server_endpoint,
-        workspace_url=workspace_url,
-        table_name=table_name,
-        client_id=client_id,
-        client_secret=client_secret,
-    )
-
+def send_events(stream, events, args):
     sent_count = 0
     event_index = 0
     batch_number = 0
-    cycle_number = 1
     invalid_event_injected = False
 
     try:
-        while continuous or event_index < len(events):
+        while args.continuous or event_index < len(events):
             if event_index >= len(events):
-                cycle_number += 1
                 event_index = 0
-
                 random.shuffle(events)
 
-                print(
-                    "\nStarting continuous cycle "
-                    f"{cycle_number}"
-                )
-
-            batch_size = random.randint(
-                min_batch_size,
-                max_batch_size,
-            )
-
-            batch = events[
-                event_index:
-                event_index + batch_size
-            ]
-
+            batch_size = random.randint(args.min_batch_size, args.max_batch_size)
+            batch = events[event_index:event_index + batch_size]
             batch_number += 1
-
-            print(
-                f"\nBatch {batch_number}: "
-                f"sending {len(batch)} events"
-            )
 
             for event in batch:
                 payload = event.copy()
 
-                if (
-                    invalid_event_type
-                    and not invalid_event_injected
-                ):
-                    payload = make_invalid_event(
-                        payload=payload,
-                        invalid_event_type=invalid_event_type,
-                    )
-
+                if args.invalid_event and not invalid_event_injected:
+                    payload = make_invalid_event(payload, args.invalid_event)
                     invalid_event_injected = True
+                    print(f"Injected invalid event: {args.invalid_event}")
 
-                    print(
-                        "DQ TEST: injecting invalid event "
-                        f"type={invalid_event_type}"
-                    )
+            
+                payload["discount_code"] = random.choice(DISCOUNT_CODES) if args.include_discount_code else None
+                payload["ingest_datetime"] = datetime.now(timezone.utc).isoformat()
 
-                if include_discount_code:
-                    payload["discount_code"] = (
-                        random.choice(
-                            DISCOUNT_CODES
-                        )
-                    )
-                else:
-                    payload["discount_code"] = None
-
-                payload["ingest_datetime"] = (
-                    datetime.now(
-                        timezone.utc
-                    ).isoformat()
-                )
-
-                offset = (
-                    stream.ingest_record_offset(
-                        payload
-                    )
-                )
-
-                stream.wait_for_offset(
-                    offset
-                )
-
+                offset = stream.ingest_record_offset(payload)
+                stream.wait_for_offset(offset)
                 sent_count += 1
 
-                print(
-                    f"Sent order={payload['order_id']} "
-                    f"product={payload['product_id']} "
-                    f"quantity={payload['quantity']} "
-                    f"price={payload['price']} "
-                    f"discount="
-                    f"{payload['discount_code']} "
-                    f"offset={offset}"
-                )
-
             event_index += len(batch)
+            print(f"Batch {batch_number}: {len(batch)} events sent (total: {sent_count})")
 
-            if continuous:
-                print(
-                    f"Total sent: {sent_count} events"
-                )
-            else:
-                print(
-                    "Progress: "
-                    f"{sent_count}/{len(events)} events"
-                )
-
-            if continuous or event_index < len(events):
-                delay = random.uniform(
-                    min_batch_delay,
-                    max_batch_delay,
-                )
-
-                print(
-                    f"Waiting {delay:.2f}s "
-                    "before next batch..."
-                )
-
-                time.sleep(
-                    delay
-                )
+            if args.continuous or event_index < len(events):
+                time.sleep(random.uniform(args.min_batch_delay, args.max_batch_delay))
 
     except KeyboardInterrupt:
-        print(
-            "\nProducer stopped by user."
-        )
-
-        print(
-            f"Total events sent: {sent_count}"
-        )
-
-    finally:
-        stream.close()
+        print("\nProducer stopped by user.")
 
     return sent_count
 
 
-def validate_args(args) -> None:
-    if (
-        args.num_events is not None
-        and args.num_events <= 0
-    ):
-        raise ValueError(
-            "num-events must be greater than 0"
-        )
-
-    if args.min_batch_size <= 0:
-        raise ValueError(
-            "min-batch-size must be greater than 0"
-        )
-
-    if (
-        args.max_batch_size
-        < args.min_batch_size
-    ):
-        raise ValueError(
-            "max-batch-size must be greater than "
-            "or equal to min-batch-size"
-        )
-
-    if args.min_batch_delay < 0:
-        raise ValueError(
-            "min-batch-delay cannot be negative"
-        )
-
-    if (
-        args.max_batch_delay
-        < args.min_batch_delay
-    ):
-        raise ValueError(
-            "max-batch-delay must be greater than "
-            "or equal to min-batch-delay"
-        )
-
-
 def main():
     args = parse_args()
-
     validate_args(args)
 
-    server_endpoint = get_required_env(
-        "ZEROBUS_SERVER_ENDPOINT"
-    )
+    server_endpoint = get_required_env("ZEROBUS_SERVER_ENDPOINT")
+    workspace_url = get_required_env("DATABRICKS_WORKSPACE_URL")
+    client_id = get_required_env("DATABRICKS_CLIENT_ID")
+    client_secret = get_required_env("DATABRICKS_CLIENT_SECRET")
+    table_name = os.environ.get("ZEROBUS_TABLE_NAME", "dbr_dev.ecommerce_bronze.brz_orders")
 
-    workspace_url = get_required_env(
-        "DATABRICKS_WORKSPACE_URL"
-    )
-
-    client_id = get_required_env(
-        "DATABRICKS_CLIENT_ID"
-    )
-
-    client_secret = get_required_env(
-        "DATABRICKS_CLIENT_SECRET"
-    )
-
-    table_name = os.environ.get(
-        "ZEROBUS_TABLE_NAME",
-        "dbr_dev.ecommerce_bronze.brz_orders",
-    )
-
-    orders = load_orders(
-        args.orders_path
-    )
-
-    order_items = load_order_items(
-        args.order_items_path
-    )
-
-    source_events = build_order_events(
-        orders=orders,
-        order_items=order_items,
-    )
+    orders = load_orders(args.orders_path)
+    order_items = load_order_items(args.order_items_path)
+    source_events = build_order_events(orders, order_items)
 
     if not source_events:
-        raise RuntimeError(
-            "No valid order events were generated "
-            "from the source files"
-        )
+        raise RuntimeError("No order events were generated from the source files")
 
     if args.continuous:
         events = source_events
-
-        print(
-            "Execution mode: continuous"
-        )
-
-        print(
-            "Source event pool: "
-            f"{len(events)} events"
-        )
-
-        print(
-            "Press Ctrl+C to stop the producer"
-        )
-
+        print("Mode: continuous")
+        print(f"Source events: {len(events)}")
+        print("Press Ctrl+C to stop")
     else:
-        num_events = (
-            args.num_events
-            if args.num_events is not None
-            else DEFAULT_NUM_EVENTS
-        )
+        num_events = args.num_events if args.num_events is not None else DEFAULT_NUM_EVENTS
 
-        events = select_events(
-            events=source_events,
-            num_events=num_events,
-        )
+        if num_events > len(source_events):
+            raise ValueError(f"Requested {num_events} events, but only {len(source_events)} are available")
 
-        print(
-            "Execution mode: finite"
-        )
+        events = source_events[:num_events]
+        print("Mode: finite")
+        print(f"Events to send: {len(events)}")
 
-        print(
-            f"Events to send: {len(events)}"
-        )
+    print(f"Target: {table_name}")
+    print(f"Batch size: {args.min_batch_size}-{args.max_batch_size}")
 
-    print(
-        f"Target table: {table_name}"
-    )
-
-    print(
-        "Batch size: "
-        f"{args.min_batch_size}-"
-        f"{args.max_batch_size}"
-    )
-
-    print(
-        "Batch delay: "
-        f"{args.min_batch_delay}-"
-        f"{args.max_batch_delay}s"
-    )
-
-    print(
-        "Discount codes: "
-        f"{'enabled' if args.include_discount_code else 'disabled'}"
-    )
-
+    if args.include_discount_code:
+        print("Schema evolution: discount_code enabled")
     if args.invalid_event:
-        print(
-            f"DQ test mode: {args.invalid_event}"
-        )
+        print(f"DQ test: {args.invalid_event}")
 
-    sent_count = send_events(
-        events=events,
-        server_endpoint=server_endpoint,
-        workspace_url=workspace_url,
-        table_name=table_name,
-        client_id=client_id,
-        client_secret=client_secret,
-        min_batch_size=args.min_batch_size,
-        max_batch_size=args.max_batch_size,
-        min_batch_delay=args.min_batch_delay,
-        max_batch_delay=args.max_batch_delay,
-        include_discount_code=(
-            args.include_discount_code
-        ),
-        continuous=args.continuous,
-        invalid_event_type=args.invalid_event,
-    )
+    stream = create_zerobus_stream(server_endpoint, workspace_url, table_name, client_id, client_secret)
 
-    print(
-        "\nProducer finished: "
-        f"{sent_count} events sent"
-    )
+    try:
+        sent_count = send_events(stream, events, args)
+    finally:
+        stream.close()
+
+    print(f"\nProducer finished: {sent_count} events sent")
 
 
 if __name__ == "__main__":

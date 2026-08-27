@@ -1,6 +1,5 @@
-import pyspark.sql.functions as F
+from brz_common_functions import add_bronze_metadata
 from pyspark import pipelines as dp
-
 
 CATALOG = spark.conf.get("catalog")  # noqa: F821
 BRONZE_SCHEMA = spark.conf.get("bronze_schema")  # noqa: F821
@@ -41,6 +40,5 @@ def products_bronze():
         .option("cloudFiles.schemaEvolutionMode", "addNewColumns")
         .option("rescuedDataColumn", "_rescued_data")
         .load(SOURCE_PATH)
-        .withColumn("file_name", F.col("_metadata.file_path"))
-        .withColumn("ingest_datetime", F.current_timestamp())
+        .transform(add_bronze_metadata)
     )

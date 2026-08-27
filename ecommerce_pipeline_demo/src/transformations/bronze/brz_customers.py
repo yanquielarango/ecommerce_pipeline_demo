@@ -1,4 +1,4 @@
-import pyspark.sql.functions as F
+from brz_common_functions import add_bronze_metadata
 from pyspark import pipelines as dp
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
@@ -40,6 +40,5 @@ def customers_bronze():
         .option("mode", "PERMISSIVE")
         .option("columnNameOfCorruptRecord", "_corrupt_record")
         .load(SOURCE_PATH)
-        .withColumn("file_name", F.col("_metadata.file_path"))
-        .withColumn("ingest_datetime", F.current_timestamp())
+        .transform(add_bronze_metadata)
     )

@@ -1,0 +1,36 @@
+- criticality: warn
+  name: order_id_not_null
+  check:
+    function: is_not_null
+    arguments:
+      column: order_id
+
+- criticality: warn
+  name: customer_id_not_null
+  check:
+    function: is_not_null
+    arguments:
+      column: customer_id
+
+- criticality: warn
+  name: product_id_not_null
+  check:
+    function: is_not_null
+    arguments:
+      column: product_id
+
+- criticality: warn
+  name: quantity_positive
+  check:
+    function: sql_expression
+    arguments:
+      expression: quantity > 0
+      msg: quantity must be greater than 0
+
+- criticality: warn
+  name: price_non_negative
+  check:
+    function: sql_expression
+    arguments:
+      expression: price >= 0
+      msg: price must be greater than or equal to 0

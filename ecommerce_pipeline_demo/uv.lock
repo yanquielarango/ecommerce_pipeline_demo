@@ -253,7 +253,7 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
-integration-tests = [{ name = "databricks-connect", specifier = ">=15.4,<15.5" }]
+integration-tests = [{ name = "databricks-connect", specifier = ">=15.4.10,<15.5" }]
 unit-tests = [{ name = "pyspark", specifier = "==3.5.0" }]
 
 [[package]]

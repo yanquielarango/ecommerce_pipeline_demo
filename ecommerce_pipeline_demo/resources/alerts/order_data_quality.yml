@@ -6,7 +6,7 @@ resources:
       query_text: |
         SELECT
           COUNT(*) AS invalid_records
-        FROM ${var.catalog}.${var.silver_schema}.quarantine_orders
+        FROM ${var.catalog}.${var.silver_schema}.orders_quarantine
         WHERE ingest_datetime >= current_timestamp() - INTERVAL 15 MINUTES
 
       warehouse_id: ${var.sql_warehouse_id}
@@ -27,6 +27,6 @@ resources:
           retrigger_seconds: 0
 
       schedule:
-        quartz_cron_schedule: "0 0/5 * * * ?"
+        quartz_cron_schedule: "0 0/15 * * * ?"
         timezone_id: "Europe/Warsaw"
-        pause_status: "UNPAUSED"
+        pause_status: "PAUSED"

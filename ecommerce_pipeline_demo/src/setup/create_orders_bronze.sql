@@ -1,6 +1,4 @@
-CREATE TABLE IF NOT EXISTS IDENTIFIER(
-    {{catalog}} || '.' || {{bronze_schema}} || '.brz_orders'
-) (
+CREATE TABLE IF NOT EXISTS IDENTIFIER({{catalog}} || '.' || {{bronze_schema}} || '.brz_orders') (
     order_id STRING,
     customer_id STRING,
     product_id STRING,
