@@ -46,7 +46,6 @@ stages:
               testResultsFiles: "$(Common.TestResultsDirectory)/pytest-unit-results.xml"
               testRunTitle: Unit Tests
 
-
   - stage: Dev
     displayName: Deploy DEV
     dependsOn: Tests
@@ -79,7 +78,6 @@ stages:
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
-
 
   - stage: IntegrationTests
     displayName: Integration Tests
@@ -135,7 +133,6 @@ stages:
               testResultsFiles: "$(Common.TestResultsDirectory)/pytest-integration-results.xml"
               testRunTitle: Integration Tests
 
-
   - stage: Prod
     displayName: Deploy PROD
     dependsOn: Tests
@@ -159,8 +156,24 @@ stages:
 
           - bash: |
               databricks bundle validate -t prod
+
+              databricks bundle deployment bind bronze \
+                dbr_dev.ecommerce_bronze \
+                -t prod \
+                --auto-approve
+
+              databricks bundle deployment bind silver \
+                dbr_dev.ecommerce_silver \
+                -t prod \
+                --auto-approve
+
+              databricks bundle deployment bind gold \
+                dbr_dev.ecommerce_gold \
+                -t prod \
+                --auto-approve
+
               databricks bundle deploy -t prod
-            displayName: Validate and Deploy PROD
+            displayName: Bind and Deploy PROD
             workingDirectory: $(projectDir)
             env:
               DATABRICKS_AUTH_TYPE: oauth-m2m
