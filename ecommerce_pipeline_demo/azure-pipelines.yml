@@ -159,14 +159,8 @@ stages:
 
           - bash: |
               databricks bundle validate -t prod
-
-              databricks bundle deployment bind landing_volume \
-                dbr_dev.ecommerce_bronze.landing \
-                -t prod \
-                --auto-approve
-
               databricks bundle deploy -t prod
-            displayName: Bind Volume and Deploy PROD
+            displayName: Validate and Deploy PROD
             workingDirectory: $(projectDir)
             env:
               DATABRICKS_AUTH_TYPE: oauth-m2m
