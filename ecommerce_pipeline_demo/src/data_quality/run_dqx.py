@@ -43,11 +43,11 @@ def run_dqx(spark, table_name, checks_file):
     total_rows = result.count()
 
     error_rows = result.filter(
-        F.size(F.col("_error")) > 0
+        F.size(F.col("_errors")) > 0
     ).count()
 
     warning_rows = result.filter(
-        F.size(F.col("_warning")) > 0
+        F.size(F.col("_warnings")) > 0
     ).count()
 
     print(f"Table: {table_name}")

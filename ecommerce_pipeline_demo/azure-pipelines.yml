@@ -15,30 +15,19 @@ variables:
 stages:
   - stage: Tests
     displayName: Unit Tests
-
     jobs:
       - job: UnitTests
         steps:
           - checkout: self
-
           - task: UsePythonVersion@0
             inputs:
               versionSpec: "3.11"
-
+          - template: templates/install-uv.yml
           - bash: |
-              curl -LsSf https://astral.sh/uv/install.sh | sh
-              echo "##vso[task.prependpath]$HOME/.local/bin"
-            displayName: Install uv
-
-          - bash: |
-              uv run \
-                --group unit-tests \
-                --frozen \
-                pytest tests/unit \
+              uv run --group unit-tests --frozen pytest tests/unit \
                 --junitxml=$(Common.TestResultsDirectory)/pytest-unit-results.xml
             displayName: Run Unit Tests
             workingDirectory: $(projectDir)
-
           - task: PublishTestResults@2
             condition: succeededOrFailed()
             inputs:
@@ -46,28 +35,17 @@ stages:
               testResultsFiles: "$(Common.TestResultsDirectory)/pytest-unit-results.xml"
               testRunTitle: Unit Tests
 
-
   - stage: Dev
     displayName: Deploy DEV
     dependsOn: Tests
-    condition: |
-      and(
-        succeeded(),
-        eq(variables['Build.SourceBranch'], 'refs/heads/main')
-      )
-
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     variables:
       - group: demo2-databricks-dev
-
     jobs:
       - job: DeployDev
         steps:
           - checkout: self
-
-          - bash: |
-              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
-            displayName: Install Databricks CLI
-
+          - template: templates/install-databricks-cli.yml
           - bash: |
               databricks bundle validate -t dev
               databricks bundle deploy -t dev
@@ -80,38 +58,22 @@ stages:
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
 
-
   - stage: IntegrationTests
     displayName: Integration Tests
     dependsOn: Dev
-    condition: |
-      and(
-        succeeded(),
-        eq(variables['Build.SourceBranch'], 'refs/heads/main')
-      )
-
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     variables:
       - group: demo2-databricks-dev
-
     jobs:
       - job: IntegrationTests
         steps:
           - checkout: self
-
           - task: UsePythonVersion@0
             inputs:
               versionSpec: "3.11"
-
+          - template: templates/install-uv.yml
           - bash: |
-              curl -LsSf https://astral.sh/uv/install.sh | sh
-              echo "##vso[task.prependpath]$HOME/.local/bin"
-            displayName: Install uv
-
-          - bash: |
-              uv run \
-                --group integration-tests \
-                --frozen \
-                pytest tests/integration \
+              uv run --group integration-tests --frozen pytest tests/integration \
                 --junitxml=$(Common.TestResultsDirectory)/pytest-integration-results.xml
             displayName: Run Integration Tests
             workingDirectory: $(projectDir)
@@ -120,14 +82,11 @@ stages:
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-
               DATABRICKS_SERVERLESS_COMPUTE_ID: auto
-
               DATABRICKS_CATALOG: dbr_dev
               DATABRICKS_BRONZE_SCHEMA: ecommerce_bronze
               DATABRICKS_SILVER_SCHEMA: ecommerce_silver
               DATABRICKS_GOLD_SCHEMA: ecommerce_gold
-
           - task: PublishTestResults@2
             condition: succeededOrFailed()
             inputs:
@@ -135,28 +94,17 @@ stages:
               testResultsFiles: "$(Common.TestResultsDirectory)/pytest-integration-results.xml"
               testRunTitle: Integration Tests
 
-
   - stage: Prod
     displayName: Deploy PROD
     dependsOn: Tests
-    condition: |
-      and(
-        succeeded(),
-        startsWith(variables['Build.SourceBranch'], 'refs/tags/v')
-      )
-
+    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
     variables:
       - group: demo2-databricks-prod
-
     jobs:
       - job: DeployProd
         steps:
           - checkout: self
-
-          - bash: |
-              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
-            displayName: Install Databricks CLI
-
+          - template: templates/install-databricks-cli.yml
           - bash: |
               databricks bundle validate -t prod
               databricks bundle deploy -t prod
