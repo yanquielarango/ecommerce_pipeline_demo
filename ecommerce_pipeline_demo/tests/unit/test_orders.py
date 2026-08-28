@@ -8,7 +8,6 @@ from pyspark.sql.types import (
 
 from transformations.silver.slv_orders_functions import prepare_orders
 
-
 ORDERS_SCHEMA = StructType(
     [
         StructField("order_id", StringType(), True),

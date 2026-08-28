@@ -8,7 +8,6 @@ from pyspark.sql.types import (
 
 from transformations.silver.slv_products_functions import prepare_products
 
-
 PRODUCTS_SCHEMA = StructType(
     [
         StructField("product_id", StringType(), True),

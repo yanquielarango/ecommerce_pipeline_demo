@@ -4,6 +4,7 @@ targets:
 
     workspace:
       host: https://adb-7405604503619901.1.azuredatabricks.net
+      root_path: /Workspace/Users/e3e66ff4-6fc8-42b6-ba09-f592bc7dabc5/.bundle/${bundle.name}/${bundle.target}
 
     variables:
       catalog: dbr_dev
