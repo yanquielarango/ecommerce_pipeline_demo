@@ -461,7 +461,7 @@ Unit tests validate the transformation functions without depending on a deployed
 Run them with:
 
 ```bash
-uv run --group unit-tests --frozen pytest tests/unit -v
+uv run --group unit-tests --frozen pytest tests/unit -m unit_test -v
 ```
 
 The current suite covers order preparation, customer cleanup, product cleanup and Gold fact logic.
@@ -473,7 +473,7 @@ Integration tests validate the deployed data flow using Databricks Connect and s
 Run them with:
 
 ```bash
-uv run --group integration-tests --frozen pytest tests/integration -v
+uv run --env-file .env --group integration-tests --frozen pytest tests/integration -m integration_test -v
 ```
 
 The current integration suite checks the orders flow from Bronze to Silver and quarantine. It also checks that Silver orders are available in `fact_orders`.
@@ -655,13 +655,13 @@ FROM <catalog>.<gold_schema>.fact_orders;
 ### Unit Tests
 
 ```bash
-uv run --group unit-tests --frozen pytest tests/unit -v
+uv run --group unit-tests --frozen pytest tests/unit -m unit_test -v
 ```
 
 ### Integration Tests
 
 ```bash
-uv run --group integration-tests --frozen pytest tests/integration -v
+uv run --env-file .env --group integration-tests --frozen pytest tests/integration -m integration_test -v
 ```
 
 ## Troubleshooting

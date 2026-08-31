@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pytest
 from pyspark.sql.types import (
     IntegerType,
     StringType,
@@ -23,6 +24,7 @@ CUSTOMERS_SCHEMA = StructType(
 )
 
 
+@pytest.mark.unit_test
 def test_prepare_customers_cleans_city_and_state(spark):
     input_df = spark.createDataFrame(
         [
@@ -45,6 +47,7 @@ def test_prepare_customers_cleans_city_and_state(spark):
     assert result.customer_state == "SP"
 
 
+@pytest.mark.unit_test
 def test_prepare_customers_removes_corrupt_records(spark):
     input_df = spark.createDataFrame(
         [

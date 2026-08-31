@@ -1,3 +1,7 @@
+import pytest
+
+
+@pytest.mark.integration_test
 def test_orders_are_routed_to_silver_and_quarantine(
     spark,
     bronze_orders_table,

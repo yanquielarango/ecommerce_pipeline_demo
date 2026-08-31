@@ -3,7 +3,7 @@ WITH silver AS (
         COUNT(*) AS row_count,
         COALESCE(SUM(quantity), 0) AS total_quantity,
         COALESCE(ROUND(SUM(price), 2), 0) AS total_amount
-    FROM IDENTIFIER({{silver_orders_table}})
+    FROM IDENTIFIER(:silver_orders_table)
 ),
 
 gold AS (
@@ -11,7 +11,7 @@ gold AS (
         COUNT(*) AS row_count,
         COALESCE(SUM(quantity), 0) AS total_quantity,
         COALESCE(ROUND(SUM(line_amount), 2), 0) AS total_amount
-    FROM IDENTIFIER({{gold_fact_orders_table}})
+    FROM IDENTIFIER(:gold_fact_orders_table)
 )
 
 SELECT

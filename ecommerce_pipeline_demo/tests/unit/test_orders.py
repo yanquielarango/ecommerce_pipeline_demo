@@ -1,3 +1,5 @@
+import pytest
+
 from pyspark.sql.types import (
     DoubleType,
     LongType,
@@ -7,6 +9,7 @@ from pyspark.sql.types import (
 )
 
 from transformations.silver.slv_orders_functions import prepare_orders
+
 
 ORDERS_SCHEMA = StructType(
     [
@@ -22,6 +25,7 @@ ORDERS_SCHEMA = StructType(
 )
 
 
+@pytest.mark.unit_test
 def test_prepare_orders_converts_timestamps_and_marks_invalid_record(spark):
     input_df = spark.createDataFrame(
         [

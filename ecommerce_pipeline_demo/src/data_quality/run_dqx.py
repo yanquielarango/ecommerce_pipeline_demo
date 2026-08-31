@@ -2,21 +2,28 @@ import argparse
 from pathlib import Path
 
 import pyspark.sql.functions as F
+
+from databricks.connect import DatabricksSession
+from databricks.labs.dqx.config import FileChecksStorageConfig
 from databricks.labs.dqx.engine import DQEngine
 from databricks.sdk import WorkspaceClient
 from pyspark.sql import SparkSession
+
 
 CHECKS_DIR = Path(__file__).parent / "checks"
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run DQX checks")
+    parser = argparse.ArgumentParser(
+        description="Run DQX checks"
+    )
 
     parser.add_argument(
         "--table",
         required=True,
         help="Fully qualified table name",
     )
+
     parser.add_argument(
         "--checks",
         required=True,
@@ -26,11 +33,20 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_dqx(spark, table_name, checks_file):
-    engine = DQEngine(WorkspaceClient())
+def run_dqx(
+    spark: SparkSession,
+    table_name: str,
+    checks_file: str,
+):
+    engine = DQEngine(
+        WorkspaceClient(),
+        spark=spark,
+    )
 
-    checks = engine.load_checks_from_local_file(
-        str(CHECKS_DIR / checks_file)
+    checks = engine.load_checks(
+        config=FileChecksStorageConfig(
+            location=str(CHECKS_DIR / checks_file)
+        )
     )
 
     df = spark.table(table_name)
@@ -64,7 +80,11 @@ def run_dqx(spark, table_name, checks_file):
 def main():
     args = parse_args()
 
-    spark = SparkSession.builder.getOrCreate()
+    spark = (
+        DatabricksSession.builder
+        .serverless()
+        .getOrCreate()
+    )
 
     run_dqx(
         spark=spark,

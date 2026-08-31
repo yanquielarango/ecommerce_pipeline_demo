@@ -13,8 +13,8 @@ CUSTOMERS_DQ_RULES = {
 
 
 
-@dp.expect_all_or_drop(CUSTOMERS_DQ_RULES)
 @dp.temporary_view(name="customers_clean")
+@dp.expect_all_or_drop(CUSTOMERS_DQ_RULES)
 def customers_clean():
     return prepare_customers(
         spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.brz_customers")  # noqa: F821

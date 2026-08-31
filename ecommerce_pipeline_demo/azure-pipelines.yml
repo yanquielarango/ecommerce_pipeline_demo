@@ -12,22 +12,34 @@ pool:
 variables:
   projectDir: $(Build.SourcesDirectory)/ecommerce_pipeline_demo
 
+
 stages:
+
+  # ============================================================
+  # UNIT TESTS
+  # ============================================================
+
   - stage: Tests
     displayName: Unit Tests
+
     jobs:
       - job: UnitTests
+
         steps:
           - checkout: self
+
           - task: UsePythonVersion@0
             inputs:
               versionSpec: "3.11"
+
           - template: templates/install-uv.yml
+
           - bash: |
               uv run --group unit-tests --frozen pytest tests/unit \
                 --junitxml=$(Common.TestResultsDirectory)/pytest-unit-results.xml
             displayName: Run Unit Tests
             workingDirectory: $(projectDir)
+
           - task: PublishTestResults@2
             condition: succeededOrFailed()
             inputs:
@@ -35,22 +47,39 @@ stages:
               testResultsFiles: "$(Common.TestResultsDirectory)/pytest-unit-results.xml"
               testRunTitle: Unit Tests
 
+
+  # ============================================================
+  # DEV - DEPLOY + RUN
+  # ============================================================
+
   - stage: Dev
     displayName: Deploy DEV
     dependsOn: Tests
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+
+    condition: and(
+      succeeded(),
+      eq(variables['Build.SourceBranch'], 'refs/heads/main')
+      )
+
     variables:
       - group: demo2-databricks-dev
+
     jobs:
       - job: DeployDev
+        displayName: Deploy and Run DEV
+
         steps:
           - checkout: self
+
           - template: templates/install-databricks-cli.yml
+
           - bash: |
               databricks bundle validate -t dev
               databricks bundle deploy -t dev
-            displayName: Validate and Deploy DEV
+              databricks bundle run -t dev ecommerce_pipeline
+            displayName: Validate, Deploy and Run DEV
             workingDirectory: $(projectDir)
+
             env:
               DATABRICKS_AUTH_TYPE: oauth-m2m
               DATABRICKS_HOST: $(DATABRICKS_HOST)
@@ -58,61 +87,392 @@ stages:
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
 
-  - stage: IntegrationTests
-    displayName: Integration Tests
+
+  # ============================================================
+  # DEV - VALIDATION
+  # ============================================================
+
+  - stage: DevValidation
+    displayName: Validate DEV
     dependsOn: Dev
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+
+    condition: and(
+      succeeded(),
+      eq(variables['Build.SourceBranch'], 'refs/heads/main')
+      )
+
     variables:
       - group: demo2-databricks-dev
+
     jobs:
-      - job: IntegrationTests
+      - job: ValidateDev
+        displayName: Integration and Data Quality
+
         steps:
           - checkout: self
+
           - task: UsePythonVersion@0
             inputs:
               versionSpec: "3.11"
+
           - template: templates/install-uv.yml
+
+
+          # ----------------------------------------------------
+          # Integration Tests
+          # ----------------------------------------------------
+
           - bash: |
               uv run --group integration-tests --frozen pytest tests/integration \
                 --junitxml=$(Common.TestResultsDirectory)/pytest-integration-results.xml
             displayName: Run Integration Tests
             workingDirectory: $(projectDir)
+
             env:
               DATABRICKS_AUTH_TYPE: oauth-m2m
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               DATABRICKS_SERVERLESS_COMPUTE_ID: auto
-              DATABRICKS_CATALOG: dbr_dev
-              DATABRICKS_BRONZE_SCHEMA: ecommerce_bronze
-              DATABRICKS_SILVER_SCHEMA: ecommerce_silver
-              DATABRICKS_GOLD_SCHEMA: ecommerce_gold
+
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
+              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
+              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+
+
           - task: PublishTestResults@2
             condition: succeededOrFailed()
             inputs:
               testResultsFormat: JUnit
               testResultsFiles: "$(Common.TestResultsDirectory)/pytest-integration-results.xml"
-              testRunTitle: Integration Tests
+              testRunTitle: DEV Integration Tests
+
+
+          # ----------------------------------------------------
+          # DQX Bronze
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_dqx.py \
+                --table "$DATABRICKS_CATALOG.$DATABRICKS_BRONZE_SCHEMA.brz_orders" \
+                --checks bronze_orders.yml
+            displayName: DQX Bronze
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
+
+
+          # ----------------------------------------------------
+          # DQX Silver
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_dqx.py \
+                --table "$DATABRICKS_CATALOG.$DATABRICKS_SILVER_SCHEMA.slv_orders" \
+                --checks silver_orders.yml
+            displayName: DQX Silver
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
+
+
+          # ----------------------------------------------------
+          # DQX Gold
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_dqx.py \
+                --table "$DATABRICKS_CATALOG.$DATABRICKS_GOLD_SCHEMA.fact_orders" \
+                --checks fact_orders.yml
+            displayName: DQX Gold
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+
+
+          # ----------------------------------------------------
+          # Bronze -> Silver Reconciliation
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_reconciliation.py \
+                --query bronze_to_silver.sql
+            displayName: Reconcile Bronze to Silver
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
+              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
+              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+
+
+          # ----------------------------------------------------
+          # Silver -> Gold Reconciliation
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_reconciliation.py \
+                --query silver_to_gold.sql
+            displayName: Reconcile Silver to Gold
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
+              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
+              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+
+
+  # ============================================================
+  # PROD - DEPLOY + RUN
+  # ============================================================
 
   - stage: Prod
     displayName: Deploy PROD
     dependsOn: Tests
-    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
+
+    condition: and(
+      succeeded(),
+      startsWith(variables['Build.SourceBranch'], 'refs/tags/v')
+      )
+
     variables:
       - group: demo2-databricks-prod
+
     jobs:
       - job: DeployProd
+        displayName: Deploy and Run PROD
+
         steps:
           - checkout: self
+
           - template: templates/install-databricks-cli.yml
+
           - bash: |
               databricks bundle validate -t prod
               databricks bundle deploy -t prod
-            displayName: Validate and Deploy PROD
+              databricks bundle run -t prod ecommerce_pipeline
+            displayName: Validate, Deploy and Run PROD
             workingDirectory: $(projectDir)
+
             env:
               DATABRICKS_AUTH_TYPE: oauth-m2m
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
+
+
+  # ============================================================
+  # PROD - VALIDATION
+  # ============================================================
+
+  - stage: ProdValidation
+    displayName: Validate PROD
+    dependsOn: Prod
+
+    condition: and(
+      succeeded(),
+      startsWith(variables['Build.SourceBranch'], 'refs/tags/v')
+      )
+
+    variables:
+      - group: demo2-databricks-prod
+
+    jobs:
+      - job: ValidateProd
+        displayName: Integration and Data Quality
+
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.11"
+
+          - template: templates/install-uv.yml
+
+
+          # ----------------------------------------------------
+          # Integration Tests
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen pytest tests/integration \
+                --junitxml=$(Common.TestResultsDirectory)/pytest-integration-results.xml
+            displayName: Run Integration Tests
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
+              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
+              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+
+
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: "$(Common.TestResultsDirectory)/pytest-integration-results.xml"
+              testRunTitle: PROD Integration Tests
+
+
+          # ----------------------------------------------------
+          # DQX Bronze
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_dqx.py \
+                --table "$DATABRICKS_CATALOG.$DATABRICKS_BRONZE_SCHEMA.brz_orders" \
+                --checks bronze_orders.yml
+            displayName: DQX Bronze
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
+
+
+          # ----------------------------------------------------
+          # DQX Silver
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_dqx.py \
+                --table "$DATABRICKS_CATALOG.$DATABRICKS_SILVER_SCHEMA.slv_orders" \
+                --checks silver_orders.yml
+            displayName: DQX Silver
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
+
+
+          # ----------------------------------------------------
+          # DQX Gold
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_dqx.py \
+                --table "$DATABRICKS_CATALOG.$DATABRICKS_GOLD_SCHEMA.fact_orders" \
+                --checks fact_orders.yml
+            displayName: DQX Gold
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+
+
+          # ----------------------------------------------------
+          # Bronze -> Silver Reconciliation
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_reconciliation.py \
+                --query bronze_to_silver.sql
+            displayName: Reconcile Bronze to Silver
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
+              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
+              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+
+
+          # ----------------------------------------------------
+          # Silver -> Gold Reconciliation
+          # ----------------------------------------------------
+
+          - bash: |
+              uv run --group integration-tests --frozen python \
+                src/data_quality/run_reconciliation.py \
+                --query silver_to_gold.sql
+            displayName: Reconcile Silver to Gold
+            workingDirectory: $(projectDir)
+
+            env:
+              DATABRICKS_AUTH_TYPE: oauth-m2m
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
+              DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
+              DATABRICKS_SERVERLESS_COMPUTE_ID: auto
+
+              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
+              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
+              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
+              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)

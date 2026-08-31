@@ -1,6 +1,8 @@
+import pytest
 import pyspark.sql.functions as F
 
 
+@pytest.mark.integration_test
 def test_silver_orders_are_available_in_fact_orders(
     spark,
     silver_orders_table,

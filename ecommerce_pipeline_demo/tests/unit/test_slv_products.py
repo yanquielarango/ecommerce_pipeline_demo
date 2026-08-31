@@ -1,3 +1,4 @@
+import pytest
 from pyspark.sql.types import (
     IntegerType,
     StringType,
@@ -26,6 +27,7 @@ PRODUCTS_SCHEMA = StructType(
 )
 
 
+@pytest.mark.unit_test
 def test_prepare_products_cleans_category_and_column_names(spark):
     input_df = spark.createDataFrame(
         [
@@ -54,6 +56,7 @@ def test_prepare_products_cleans_category_and_column_names(spark):
     assert result.product_description_length == 20
 
 
+@pytest.mark.unit_test
 def test_prepare_products_removes_rescued_records(spark):
     input_df = spark.createDataFrame(
         [

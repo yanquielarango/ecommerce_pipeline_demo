@@ -1,8 +1,11 @@
 from datetime import datetime
 
+import pytest
+
 from transformations.gold.fact_orders_functions import build_fact_orders
 
 
+@pytest.mark.unit_test
 def test_build_fact_orders_creates_keys_and_amounts(spark):
     orders = spark.createDataFrame(
         [

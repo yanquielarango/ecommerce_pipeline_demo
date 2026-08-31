@@ -11,8 +11,9 @@ PRODUCTS_DQ_RULES = {
 }
 
 
-@dp.expect_all_or_drop(PRODUCTS_DQ_RULES)
+
 @dp.temporary_view(name="products_clean")
+@dp.expect_all_or_drop(PRODUCTS_DQ_RULES)
 def products_clean():
     return prepare_products(
         spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.brz_products")  # noqa: F821
