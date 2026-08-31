@@ -17,7 +17,7 @@ dev = [
 ]
 
 unit-tests = [
-    "pyspark==3.5.0",
+    "pyspark==3.5.2",
 ]
 
 integration-tests = [
