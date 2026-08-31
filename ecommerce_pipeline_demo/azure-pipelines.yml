@@ -49,17 +49,13 @@ stages:
 
 
   # ============================================================
-  # DEV - DEPLOY + RUN
+  # DEV - DEPLOY AND RUN
   # ============================================================
 
   - stage: Dev
     displayName: Deploy DEV
     dependsOn: Tests
-
-    condition: and(
-      succeeded(),
-      eq(variables['Build.SourceBranch'], 'refs/heads/main')
-      )
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     variables:
       - group: demo2-databricks-dev
@@ -95,11 +91,7 @@ stages:
   - stage: DevValidation
     displayName: Validate DEV
     dependsOn: Dev
-
-    condition: and(
-      succeeded(),
-      eq(variables['Build.SourceBranch'], 'refs/heads/main')
-      )
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
 
     variables:
       - group: demo2-databricks-dev
@@ -118,9 +110,9 @@ stages:
           - template: templates/install-uv.yml
 
 
-          # ----------------------------------------------------
-          # Integration Tests
-          # ----------------------------------------------------
+          # ====================================================
+          # INTEGRATION TESTS
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen pytest tests/integration \
@@ -135,10 +127,10 @@ stages:
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               DATABRICKS_SERVERLESS_COMPUTE_ID: auto
 
-              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
-              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
-              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
-              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+              DATABRICKS_CATALOG: dbr_dev
+              DATABRICKS_BRONZE_SCHEMA: ecommerce_bronze
+              DATABRICKS_SILVER_SCHEMA: ecommerce_silver
+              DATABRICKS_GOLD_SCHEMA: ecommerce_gold
 
 
           - task: PublishTestResults@2
@@ -149,14 +141,14 @@ stages:
               testRunTitle: DEV Integration Tests
 
 
-          # ----------------------------------------------------
-          # DQX Bronze
-          # ----------------------------------------------------
+          # ====================================================
+          # DQX BRONZE
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
                 src/data_quality/run_dqx.py \
-                --table "$DATABRICKS_CATALOG.$DATABRICKS_BRONZE_SCHEMA.brz_orders" \
+                --table dbr_dev.ecommerce_bronze.brz_orders \
                 --checks bronze_orders.yml
             displayName: DQX Bronze
             workingDirectory: $(projectDir)
@@ -167,18 +159,16 @@ stages:
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               DATABRICKS_SERVERLESS_COMPUTE_ID: auto
-              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
-              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
 
 
-          # ----------------------------------------------------
-          # DQX Silver
-          # ----------------------------------------------------
+          # ====================================================
+          # DQX SILVER
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
                 src/data_quality/run_dqx.py \
-                --table "$DATABRICKS_CATALOG.$DATABRICKS_SILVER_SCHEMA.slv_orders" \
+                --table dbr_dev.ecommerce_silver.slv_orders \
                 --checks silver_orders.yml
             displayName: DQX Silver
             workingDirectory: $(projectDir)
@@ -189,18 +179,16 @@ stages:
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               DATABRICKS_SERVERLESS_COMPUTE_ID: auto
-              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
-              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
 
 
-          # ----------------------------------------------------
-          # DQX Gold
-          # ----------------------------------------------------
+          # ====================================================
+          # DQX GOLD
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
                 src/data_quality/run_dqx.py \
-                --table "$DATABRICKS_CATALOG.$DATABRICKS_GOLD_SCHEMA.fact_orders" \
+                --table dbr_dev.ecommerce_gold.fact_orders \
                 --checks fact_orders.yml
             displayName: DQX Gold
             workingDirectory: $(projectDir)
@@ -211,13 +199,11 @@ stages:
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               DATABRICKS_SERVERLESS_COMPUTE_ID: auto
-              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
-              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
 
 
-          # ----------------------------------------------------
-          # Bronze -> Silver Reconciliation
-          # ----------------------------------------------------
+          # ====================================================
+          # BRONZE -> SILVER RECONCILIATION
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
@@ -233,15 +219,15 @@ stages:
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               DATABRICKS_SERVERLESS_COMPUTE_ID: auto
 
-              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
-              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
-              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
-              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+              DATABRICKS_CATALOG: dbr_dev
+              DATABRICKS_BRONZE_SCHEMA: ecommerce_bronze
+              DATABRICKS_SILVER_SCHEMA: ecommerce_silver
+              DATABRICKS_GOLD_SCHEMA: ecommerce_gold
 
 
-          # ----------------------------------------------------
-          # Silver -> Gold Reconciliation
-          # ----------------------------------------------------
+          # ====================================================
+          # SILVER -> GOLD RECONCILIATION
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
@@ -257,24 +243,20 @@ stages:
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
               DATABRICKS_SERVERLESS_COMPUTE_ID: auto
 
-              DATABRICKS_CATALOG: $(DATABRICKS_CATALOG)
-              DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
-              DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
-              DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
+              DATABRICKS_CATALOG: dbr_dev
+              DATABRICKS_BRONZE_SCHEMA: ecommerce_bronze
+              DATABRICKS_SILVER_SCHEMA: ecommerce_silver
+              DATABRICKS_GOLD_SCHEMA: ecommerce_gold
 
 
   # ============================================================
-  # PROD - DEPLOY + RUN
+  # PROD - DEPLOY AND RUN
   # ============================================================
 
   - stage: Prod
     displayName: Deploy PROD
     dependsOn: Tests
-
-    condition: and(
-      succeeded(),
-      startsWith(variables['Build.SourceBranch'], 'refs/tags/v')
-      )
+    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
 
     variables:
       - group: demo2-databricks-prod
@@ -310,11 +292,7 @@ stages:
   - stage: ProdValidation
     displayName: Validate PROD
     dependsOn: Prod
-
-    condition: and(
-      succeeded(),
-      startsWith(variables['Build.SourceBranch'], 'refs/tags/v')
-      )
+    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
 
     variables:
       - group: demo2-databricks-prod
@@ -333,9 +311,9 @@ stages:
           - template: templates/install-uv.yml
 
 
-          # ----------------------------------------------------
-          # Integration Tests
-          # ----------------------------------------------------
+          # ====================================================
+          # INTEGRATION TESTS
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen pytest tests/integration \
@@ -364,9 +342,9 @@ stages:
               testRunTitle: PROD Integration Tests
 
 
-          # ----------------------------------------------------
-          # DQX Bronze
-          # ----------------------------------------------------
+          # ====================================================
+          # DQX BRONZE
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
@@ -386,9 +364,9 @@ stages:
               DATABRICKS_BRONZE_SCHEMA: $(DATABRICKS_BRONZE_SCHEMA)
 
 
-          # ----------------------------------------------------
-          # DQX Silver
-          # ----------------------------------------------------
+          # ====================================================
+          # DQX SILVER
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
@@ -408,9 +386,9 @@ stages:
               DATABRICKS_SILVER_SCHEMA: $(DATABRICKS_SILVER_SCHEMA)
 
 
-          # ----------------------------------------------------
-          # DQX Gold
-          # ----------------------------------------------------
+          # ====================================================
+          # DQX GOLD
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
@@ -430,9 +408,9 @@ stages:
               DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
 
 
-          # ----------------------------------------------------
-          # Bronze -> Silver Reconciliation
-          # ----------------------------------------------------
+          # ====================================================
+          # BRONZE -> SILVER RECONCILIATION
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
@@ -454,9 +432,9 @@ stages:
               DATABRICKS_GOLD_SCHEMA: $(DATABRICKS_GOLD_SCHEMA)
 
 
-          # ----------------------------------------------------
-          # Silver -> Gold Reconciliation
-          # ----------------------------------------------------
+          # ====================================================
+          # SILVER -> GOLD RECONCILIATION
+          # ====================================================
 
           - bash: |
               uv run --group integration-tests --frozen python \
