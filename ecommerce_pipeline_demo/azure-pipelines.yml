@@ -4,7 +4,7 @@ trigger:
       - main
   tags:
     include:
-      - "v*"
+      - "v*" # tags = prod
 
 pool:
   vmImage: ubuntu-latest
@@ -41,7 +41,7 @@ stages:
             workingDirectory: $(projectDir)
 
           - task: PublishTestResults@2
-            condition: succeededOrFailed()
+            condition: succeededOrFailed() # want the report even if it fails
             inputs:
               testResultsFormat: JUnit
               testResultsFiles: "$(Common.TestResultsDirectory)/pytest-unit-results.xml"
@@ -55,7 +55,7 @@ stages:
   - stage: Dev
     displayName: Deploy DEV
     dependsOn: Tests
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main')) # main only, tags go to prod
 
     variables:
       - group: demo2-databricks-dev
@@ -81,7 +81,7 @@ stages:
               DATABRICKS_HOST: $(DATABRICKS_HOST)
               DATABRICKS_CLIENT_ID: $(DATABRICKS_CLIENT_ID)
               DATABRICKS_CLIENT_SECRET: $(DATABRICKS_CLIENT_SECRET)
-              BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID)
+              BUNDLE_VAR_zerobus_principal_id: $(DATABRICKS_CLIENT_ID) # same SP zerobus writes with
 
 
   # ============================================================
@@ -144,6 +144,8 @@ stages:
           # ====================================================
           # DQX BRONZE
           # ====================================================
+          # table is hardcoded here, prod uses the vars for this
+          # still need to align it at some point
 
           - bash: |
               uv run --group integration-tests --frozen python \
@@ -256,7 +258,7 @@ stages:
   - stage: Prod
     displayName: Deploy PROD
     dependsOn: Tests
-    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
+    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v')) # version tag only
 
     variables:
       - group: demo2-databricks-prod
@@ -345,6 +347,7 @@ stages:
           # ====================================================
           # DQX BRONZE
           # ====================================================
+          # this one does pull catalog/schema from the variable group, unlike dev
 
           - bash: |
               uv run --group integration-tests --frozen python \
