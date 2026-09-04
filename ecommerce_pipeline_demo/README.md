@@ -1,8 +1,8 @@
 # Ecommerce Data Pipeline
 
-End-to-end ecommerce data pipeline built with **Azure Databricks**, **Lakeflow Declarative Pipelines**, **Databricks Zerobus**, **Databricks Labs DQX**, **Azure DevOps** and **Power BI**.
+End-to-end ecommerce data pipeline built with **Azure Databricks**, **Lakeflow Declarative Pipelines**, **Databricks Zerobus**, **Databricks Labs DQX**, **Azure DevOps** and **Power BI**
 
-Order events are sent to Databricks through Zerobus. The data is processed through Bronze, Silver and Gold layers, validated with automated tests and data-quality checks, and exposed to Power BI for reporting.
+Order events are sent to Databricks through Zerobus. The data is processed through Bronze, Silver and Gold layers, validated with automated tests and data-quality checks, and exposed to Power
 
 ---
 
