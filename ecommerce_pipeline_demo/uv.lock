@@ -295,7 +295,7 @@ integration-tests = [
     { name = "databricks-connect", specifier = ">=15.4.10,<15.5" },
     { name = "databricks-labs-dqx", specifier = "==0.16.0" },
 ]
-unit-tests = [{ name = "pyspark", specifier = "==3.5.0" }]
+unit-tests = [{ name = "pyspark", specifier = "==3.5.8" }]
 
 [[package]]
 name = "executing"
@@ -787,12 +787,12 @@ wheels = [
 
 [[package]]
 name = "pyspark"
-version = "3.5.0"
+version = "3.5.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "py4j" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/92/11/5c0f24537fa68624cb6271d2a8a8982e81bd05f5cb51e9d2d2a89baa0e1a/pyspark-3.5.0.tar.gz", hash = "sha256:d41a9b76bd2aca370a6100d075c029e22ba44c5940927877e9435a3a9c566558", size = 316890381, upload-time = "2023-09-26T20:30:58.621Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/80/5a/3806f44eb47387e8af803508cdd6bbc0df784febf4dc010700be04a1ff89/pyspark-3.5.8.tar.gz", hash = "sha256:54cca0767b21b40e3953ad1d30f8601c53abf9cbda763653289cdcfcac52313c", size = 317817299, upload-time = "2026-01-15T11:46:14.487Z" }
 
 [[package]]
 name = "pytest"
